@@ -3,21 +3,21 @@
 #
 # Dug Song <dugsong@monkey.org>
 
-srcdir		= @srcdir@
-VPATH		= @srcdir@
+srcdir		= .
 
-CC		= @CC@
-CFLAGS		= @CFLAGS@
-LDFLAGS		= @LDFLAGS@
 
-PCAP_CFLAGS	= @PCAP_CFLAGS@
-PCAPLIB		= @PCAPLIB@
+CC		= gcc
+CFLAGS		= -g -D_BSD_SOURCE
+LDFLAGS		= 
 
-LNET_CFLAGS	= @LNET_CFLAGS@
-LNETLIB		= @LNETLIB@
+PCAP_CFLAGS	= -I/usr/local/include
+PCAPLIB		= -L/usr/local/lib -lpcap
+
+LNET_CFLAGS	= -D_BSD_SOURCE -D__BSD_SOURCE -D__FAVOR_BSD -DHAVE_NET_ETHERNET_H
+LNETLIB		= -lnet
 
 LIBS_CFLAGS	= -I../src $(PCAP_CFLAGS) $(LNET_CFLAGS)
-LIBS		= -L../src -lnids $(PCAPLIB) $(LNETLIB) @LIBS@
+LIBS		= -L../src -lnids $(PCAPLIB) $(LNETLIB) 
 
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<

@@ -91,7 +91,7 @@ struct nids_prm nids_params = {
     1040,			/* n_tcp_streams */
     256,			/* n_hosts */
     NULL,			/* device */
-    NULL,			/* filename */
+    "a.pcap",			/* filename */
     168,			/* sk_buff_size */
     -1,				/* dev_addon */
     nids_syslog,		/* syslog() */
