@@ -54,6 +54,7 @@ init_hash ()
 u_int
 mkhash (u_int src, u_short sport, u_int dest, u_short dport)
 {
+#if defined(ORIGIN)
   u_int res = 0;
   int i;
   u_char data[12];
@@ -65,4 +66,7 @@ mkhash (u_int src, u_short sport, u_int dest, u_short dport)
   for (i = 0; i < 12; i++)
     res = ( (res << 8) + (data[perm[i]] ^ xor[i])) % 0xff100f;
   return res;
+#endif
+	u_int port = sport ^ dport;
+	return src ^ dest ^ port;
 }

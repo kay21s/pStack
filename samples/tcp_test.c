@@ -9,6 +9,7 @@
 #include <netinet/in_systm.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include "nids.h"
 
@@ -21,6 +22,11 @@ int tcp_est = 0;
 int tcp_data = 0;
 int tcp_close = 0;
 int tcp_reset = 0;
+
+extern uint64_t tcp_proc_time;
+extern uint64_t tcp_proc_num;
+extern int false_positive;
+extern int conflict_into_list;
 
 void
 tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
@@ -65,12 +71,15 @@ tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
 int
 main ()
 {
-  if (!nids_init ())
-    {
-      fprintf (stderr, "%s\n", nids_errbuf);
-      exit (1);
-    }
-  nids_register_tcp (tcp_callback);
-  nids_run ();
-  return 0;
+	if (!nids_init ())
+	{
+		printf("%s\n", nids_errbuf);
+		exit(1);
+	}
+	nids_register_tcp (tcp_callback);
+	nids_run ();
+	printf("TCP time is %llu, number = %d\n", tcp_proc_time/tcp_proc_num, tcp_proc_num);
+	printf("false positive = %d, conflict into list = %d\n", false_positive, conflict_into_list);
+
+	return 0;
 }

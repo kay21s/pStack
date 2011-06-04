@@ -16,21 +16,18 @@ LIBSTATIC      = libnids.a
 LIBSHARED      = libnids.so.1.24
 
 CC		= gcc
-CFLAGS		= -g -D_BSD_SOURCE -DLIBNET_VER=1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1
+CFLAGS		= -g -D_BSD_SOURCE -DLIBNET_VER=-1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1
 LDFLAGS		= 
 
 PCAP_CFLAGS	= -I/usr/local/include
 PCAPLIB		= -L/usr/local/lib -lpcap
-
-LNET_CFLAGS	= -D_BSD_SOURCE -D__BSD_SOURCE -D__FAVOR_BSD -DHAVE_NET_ETHERNET_H
-LNETLIB		= -lnet
 
 LIBS		= -lnsl -pthread 
 RANLIB		= ranlib
 INSTALL		= /usr/bin/install -c
 
 OBJS		= checksum.o ip_fragment.o ip_options.o killtcp.o \
-		  libnids.o scan.o tcp.o util.o allpromisc.o hash.o
+		  libnids.o scan.o tcp.o util.o allpromisc.o hash.o conn_tcp.o bitmap.o
 OBJS_SHARED	= $(OBJS:.o=_pic.o)
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<
@@ -58,13 +55,17 @@ allpromisc_pic.o: allpromisc.c
 	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c allpromisc.c -o $@
 hash_pic.o: hash.c
 	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c hash.c -o $@
+conn_tcp_pic.o: conn_tcp.c
+	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_tcp.c -o $@
+bitmap_pic.o: bitmap.c
+	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c bitmap.c -o $@
 
 
 $(LIBSTATIC): $(OBJS)
 	ar -cr $@ $(OBJS)
 	$(RANLIB) $@
 $(LIBSHARED): $(OBJS_SHARED)
-	$(CC) -shared -Wl,-soname,$(LIBSHARED) -o $(LIBSHARED) $(OBJS_SHARED) $(LIBS) $(LNETLIB) $(PCAPLIB)
+	$(CC) -shared -Wl,-soname,$(LIBSHARED) -o $(LIBSHARED) $(OBJS_SHARED) $(LIBS) $(PCAPLIB)
 
 _install install: $(LIBSTATIC)
 	../mkinstalldirs $(install_prefix)$(libdir)

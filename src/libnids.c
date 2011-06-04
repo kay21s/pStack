@@ -74,6 +74,9 @@ struct pcap_pkthdr * nids_last_pcap_header = NULL;
 u_char *nids_last_pcap_data = NULL;
 u_int nids_linkoffset = 0;
 
+uint64_t tcp_proc_time = 0;
+uint64_t tcp_proc_num = 0;
+
 char *nids_warnings[] = {
     "Murphy - you never should see this message !",
     "Oversized IP packet",
@@ -444,11 +447,31 @@ static void process_udp(char *data)
 	ipp = ipp->next;
     }
 }
+
+static inline uint64_t read_tsc()
+{
+	uint64_t        time;
+	uint32_t        msw, lsw;
+	__asm__         __volatile__("rdtsc\n\t"
+			"movl %%edx, %0\n\t"
+			"movl %%eax, %1\n\t"
+			:         "=r"         (msw), "=r"(lsw)
+			:
+			:         "%edx"      , "%eax");
+	time = ((uint64_t) msw << 32) | lsw;
+	return time;
+}
+
 static void gen_ip_proc(u_char * data, int skblen)
 {
+    uint64_t time1, time2;
     switch (((struct ip *) data)->ip_p) {
     case IPPROTO_TCP:
+	time1 = read_tsc();
 	process_tcp(data, skblen);
+	time2 = read_tsc();
+	tcp_proc_time += (time2 - time1);
+	tcp_proc_num ++;
 	break;
     case IPPROTO_UDP:
 	process_udp((char *)data);

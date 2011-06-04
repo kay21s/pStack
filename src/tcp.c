@@ -21,6 +21,7 @@
 #include "util.h"
 #include "nids.h"
 #include "hash.h"
+#include "conn_tcp.h"
 
 #if ! HAVE_TCP_STATES
 enum {
@@ -50,17 +51,22 @@ enum {
 
 extern struct proc_node *tcp_procs;
 
+#if defined(ORIGIN)
 static struct tcp_stream **tcp_stream_table;
 static struct tcp_stream *streams_pool;
-static int tcp_num = 0;
-static int tcp_stream_table_size;
 static int max_stream;
 static struct tcp_stream *tcp_latest = 0, *tcp_oldest = 0;
+#endif
+
+int tcp_num = 0;
+int tcp_stream_table_size;
+int false_positive = 0;
+
 static struct tcp_stream *free_streams;
 static struct ip *ugly_iphdr;
 struct tcp_timeout *nids_tcp_timeouts = 0;
 
-static void purge_queue(struct half_stream * h)
+void purge_queue(struct half_stream * h)
 {
   struct skbuff *tmp, *p = h->list;
 
@@ -105,7 +111,7 @@ add_tcp_closing_timeout(struct tcp_stream * a_tcp)
     newto->next->prev = newto;
 }
 
-static void
+void
 del_tcp_closing_timeout(struct tcp_stream * a_tcp)
 {
   struct tcp_timeout *to;
@@ -126,6 +132,7 @@ del_tcp_closing_timeout(struct tcp_stream * a_tcp)
   free(to);
 }
 
+#if defined(ORIGIN)
 void
 nids_free_tcp_stream(struct tcp_stream * a_tcp)
 {
@@ -166,6 +173,7 @@ nids_free_tcp_stream(struct tcp_stream * a_tcp)
   free_streams = a_tcp;
   tcp_num--;
 }
+#endif
 
 void
 tcp_check_timeouts(struct timeval *now)
@@ -185,14 +193,14 @@ tcp_check_timeouts(struct timeval *now)
   }
 }
 
-static int
+u_int
 mk_hash_index(struct tuple4 addr)
 {
-  int hash=mkhash(addr.saddr, addr.source, addr.daddr, addr.dest);
+  u_int hash=mkhash(addr.saddr, addr.source, addr.daddr, addr.dest);
   return hash % tcp_stream_table_size;
 }
 
-static int get_ts(struct tcphdr * this_tcphdr, unsigned int * ts)
+int get_ts(struct tcphdr * this_tcphdr, unsigned int * ts)
 {
   int len = 4 * this_tcphdr->th_off;
   unsigned int tmp_ts;
@@ -219,7 +227,7 @@ static int get_ts(struct tcphdr * this_tcphdr, unsigned int * ts)
   return ret;
 }  		
 
-static int get_wscale(struct tcphdr * this_tcphdr, unsigned int * ws)
+int get_wscale(struct tcphdr * this_tcphdr, unsigned int * ws)
 {
   int len = 4 * this_tcphdr->th_off;
   unsigned int tmp_ws;
@@ -251,7 +259,7 @@ static int get_wscale(struct tcphdr * this_tcphdr, unsigned int * ws)
 
     
 
-
+#if defined(ORIGIN)
 static void
 add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
 {
@@ -308,6 +316,7 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
     tcp_latest->prev_time = a_tcp;
   tcp_latest = a_tcp;
 }
+#endif
 
 static void
 add2buf(struct half_stream * rcv, char *data, int datalen)
@@ -632,6 +641,7 @@ check_flags(struct ip * iph, struct tcphdr * th)
 }
 #endif
 
+#if defined(ORIGIN)
 struct tcp_stream *
 find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
 	    int *from_client)
@@ -700,9 +710,10 @@ void tcp_exit(void)
   streams_pool = NULL;
   /* FIXME: anything else we should free? */
   /* yes plz.. */
-  tcp_latest = tcp_oldest = NULL;
+//  tcp_latest = tcp_oldest = NULL;
   tcp_num = 0;
 }
+#endif
 
 void
 process_tcp(u_char * data, int skblen)
@@ -736,10 +747,27 @@ process_tcp(u_char * data, int skblen)
 		       this_tcphdr);
     return;
   }
-  if (!(this_tcphdr->th_flags & TH_ACK))
-    detect_scan(this_iphdr);
+//  if (!(this_tcphdr->th_flags & TH_ACK))
+//    detect_scan(this_iphdr);
   if (!nids_params.n_tcp_streams) return;
 
+#if 0
+  {
+	printf("IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
+		this_iphdr->ip_src.s_addr & 0x000000ff,
+		(this_iphdr->ip_src.s_addr & 0x0000ff00) >> 8,
+		(this_iphdr->ip_src.s_addr & 0x00ff0000) >> 16,
+		(this_iphdr->ip_src.s_addr & 0xff000000) >> 24
+		);
+	printf("daddr = %d.%d.%d.%d,", 
+		this_iphdr->ip_dst.s_addr & 0x000000ff,
+		(this_iphdr->ip_dst.s_addr & 0x0000ff00) >> 8,
+		(this_iphdr->ip_dst.s_addr & 0x00ff0000) >> 16,
+		(this_iphdr->ip_dst.s_addr & 0xff000000) >> 24
+		);
+	printf("sport = %d, dport = %d\n", this_tcphdr->th_sport, this_tcphdr->th_dport);
+  }
+#endif
 
 #if 0
   if (my_tcp_check(this_tcphdr, iplen - 4 * this_iphdr->ip_hl,
@@ -758,6 +786,19 @@ process_tcp(u_char * data, int skblen)
       add_new_tcp(this_tcphdr, this_iphdr);
     return;
   }
+
+	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
+		a_tcp->addr.dest == this_tcphdr->th_dport &&
+		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
+		a_tcp->addr.daddr == this_iphdr->ip_dst.s_addr) ||
+		(a_tcp->addr.dest == this_tcphdr->th_sport &&
+		a_tcp->addr.source == this_tcphdr->th_dport &&
+		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
+		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
+ 		false_positive ++;
+	}
+
+
   if (from_client) {
     snd = &a_tcp->client;
     rcv = &a_tcp->server;
@@ -795,14 +836,17 @@ process_tcp(u_char * data, int skblen)
     }	
     return;
   }
+//  printf("datalen = %d, th_seq = %d, ack_seq = %d, window = %d, wscale = %d\n",
+//	  	datalen, this_tcphdr->th_seq, rcv->ack_seq, rcv->window, rcv->wscale);
   if (
   	! (  !datalen && ntohl(this_tcphdr->th_seq) == rcv->ack_seq  )
   	&&
   	( !before(ntohl(this_tcphdr->th_seq), rcv->ack_seq + rcv->window*rcv->wscale) ||
           before(ntohl(this_tcphdr->th_seq) + datalen, rcv->ack_seq)  
         )
-     )     
+     )    { 
      return;
+  }
 
   if ((this_tcphdr->th_flags & TH_RST)) {
     if (a_tcp->nids_state == NIDS_DATA) {
@@ -924,6 +968,7 @@ nids_unregister_tcp(void (*x))
   unregister_callback(&tcp_procs, x);
 }
 
+#if defined(ORIGIN)
 int
 tcp_init(int size)
 {
@@ -955,6 +1000,7 @@ tcp_init(int size)
   }
   return 0;
 }
+#endif
 
 #if HAVE_ICMPHDR
 #define STRUCT_ICMP struct icmphdr

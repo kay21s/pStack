@@ -3,7 +3,7 @@
 
 #define CACHE_LINE_SIZE 64
 #define PTR_SIZE 8
-#define ELEM_SIZE 4
+#define ELEM_SIZE 8
 #define SET_ASSOCIATIVE ((CACHE_LINE_SIZE-PTR_SIZE)/ELEM_SIZE)
 #define SET_SIZE CACHE_LINE_SIZE
 #define SET_NUMBER 200000 //0.2 Million buckets = 1.4 Million Elem
@@ -20,6 +20,7 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
+int conflict_into_list = 0;
 
 static void *tcp_stream_table;
 static struct tcp_stream *tcb_array;
@@ -148,6 +149,7 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 		}
 	}
 
+	conflict_into_list ++;
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
@@ -251,7 +253,6 @@ delete_from_cache(struct tcp_stream *a_tcp)
 void
 nids_free_tcp_stream(struct tcp_stream *a_tcp)
 {
-	int hash_index = a_tcp->hash_index;
 	struct lurker_node *i, *j;
 	idx_type tcb_index;
 

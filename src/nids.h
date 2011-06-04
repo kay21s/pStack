@@ -54,10 +54,10 @@ enum
 
 struct tuple4
 {
-  u_short source;
-  u_short dest;
-  u_int saddr;
-  u_int daddr;
+  uint16_t source;
+  uint16_t dest;
+  uint32_t saddr;
+  uint32_t daddr;
 };
 
 struct half_stream
@@ -98,14 +98,16 @@ struct tcp_stream
   struct lurker_node *listeners;
   struct half_stream client;
   struct half_stream server;
+  int hash_index;
+  int read;
+#if defined(ORIGIN)
+  struct tcp_stream *next_free;
   struct tcp_stream *next_node;
   struct tcp_stream *prev_node;
-  int hash_index;
   struct tcp_stream *next_time;
   struct tcp_stream *prev_time;
-  int read;
-  struct tcp_stream *next_free;
   void *user;
+#endif
 };
 
 struct nids_prm
