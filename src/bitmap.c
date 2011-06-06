@@ -1,5 +1,7 @@
-#include "bitmap.h"
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "bitmap.h"
 
 #define BITSPERWORD 64
 #define SHIFT 6

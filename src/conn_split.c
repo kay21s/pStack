@@ -7,17 +7,20 @@
 #include "nids.h"
 #include "util.h"
 #include "bitmap.h"
-#include "conn_tcp.h"
+#include "conn_split.h"
 
-#if defined(NEW_TCP)
+#if defined(SPLIT_TCP)
 
-#define SET_NUMBER 200000 //0.2 Million buckets = 1.4 Million Elem
+#define SET_NUMBER_TH 100000 //0.1 Million buckets = 0.7 Million Elem
+#define SET_NUMBER_BH 100000 //0.1 Million buckets = 0.7 Million Elem
 
 int conflict_into_list = 0;
 int false_positive = 0;
+int processed_num = 0;
 extern struct proc_node *tcp_procs;
 
-static void *tcp_stream_table;
+static void *tcp_stream_table_th;
+static void *tcp_stream_table_bh;
 static struct tcp_stream *tcb_array;
 extern int tcp_num;
 extern int tcp_stream_table_size;
@@ -44,9 +47,8 @@ index_type F_reverse(elem_type tag, idx_type etag)
 }
 #endif
 
-
-struct tcp_stream *
-find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
+static struct tcp_stream *
+find_stream_th(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 {
 	int hash_index, i;
 	elem_type *ptr;
@@ -67,7 +69,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 			this_tcphdr->th_dport);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]), i = 0;
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
@@ -82,7 +84,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	}
 
 	// Not in cache, search collision linked list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
 		ptr_l != NULL;
 		ptr_l = ptr_l->next) {
 		
@@ -100,7 +102,78 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	return NULL;
 }
 
-static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
+static struct tcp_stream *
+find_stream_bh(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
+{
+	int hash_index, i;
+	elem_type *ptr;
+	elem_list_type *ptr_l;
+	sig_type sign;
+	struct tuple4 addr;
+	
+	addr.source = this_tcphdr->th_sport;
+	addr.dest = this_tcphdr->th_dport;
+	addr.saddr = this_iphdr->ip_src.s_addr;
+	addr.daddr = this_iphdr->ip_dst.s_addr;
+
+	hash_index = mk_hash_index(addr);
+
+	sign = calc_signature(this_iphdr->ip_src.s_addr,
+			this_iphdr->ip_dst.s_addr,
+			this_tcphdr->th_sport,
+			this_tcphdr->th_dport);
+
+	// Search the cache
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(sign, ptr)) {
+			if (addr.source == tcb_array[index_e(ptr)].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &tcb_array[index_e(ptr)];
+		}
+	}
+
+	// Not in cache, search collision linked list
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+		ptr_l != NULL;
+		ptr_l = ptr_l->next) {
+		
+		if (sig_match_l(sign, ptr_l)) {
+			if (addr.source == tcb_array[index_l(ptr_l)].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &tcb_array[index_l(ptr_l)];
+		}
+	}
+
+	// Not found
+	return NULL;
+}
+
+// A function to make it compatible to origin tcp.c
+struct tcp_stream *
+find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
+{
+	struct tcp_stream *a_tcp;
+	if (!(a_tcp = find_stream_bh(this_tcphdr, this_iphdr, from_client))) {
+		// Cannot find in Established Connections, Find in the unestablished ones
+		if (!(a_tcp = find_stream_th(this_tcphdr, this_iphdr, from_client))) {
+			return NULL;
+		}
+	}
+
+	return a_tcp;
+}
+
+static void
+add_into_cache_th(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 {
 	sig_type sign;
 	int hash_index, i;
@@ -113,7 +186,7 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	a_tcp->hash_index = hash_index;
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]), i = 0;
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
@@ -128,7 +201,42 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	head_l = (elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+
+	ptr_l->next = *head_l;
+	*head_l = ptr_l;
+}
+
+static void 
+add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
+{
+	sig_type sign;
+	int hash_index, i;
+	elem_type *ptr;
+	elem_list_type *ptr_l, **head_l;
+
+	sign = calc_signature(addr.saddr, addr.daddr, addr.source, addr.dest);
+
+	hash_index = mk_hash_index(addr);
+	a_tcp->hash_index = hash_index;
+
+	// Search the cache
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(0, ptr)) {
+			ptr->signature = sign;
+			ptr->index = index;
+			return;
+		}
+	}
+
+	conflict_into_list ++;
+	// Insert into the collision list
+	// FIXME : Optimize the malloc with lock-free library
+	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
 
 	ptr_l->next = *head_l;
 	*head_l = ptr_l;
@@ -156,7 +264,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr)
 	a_tcp = &(tcb_array[index]);
 
 	// add the index into hash cache
-	add_into_cache(addr, index, a_tcp);
+	add_into_cache_th(addr, index, a_tcp);
 
 	// fill the tcp block
 	memset(a_tcp, 0, sizeof(struct tcp_stream));
@@ -173,7 +281,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr)
 }
 
 static idx_type 
-delete_from_cache(struct tcp_stream *a_tcp)
+delete_from_cache_th(struct tcp_stream *a_tcp)
 {
 	sig_type sign;
 	idx_type tcb_index; 
@@ -188,7 +296,7 @@ delete_from_cache(struct tcp_stream *a_tcp)
 	hash_index = mk_hash_index(addr);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]), i = 0;
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
@@ -199,7 +307,7 @@ delete_from_cache(struct tcp_stream *a_tcp)
 	}
 
 	// Search the collision list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)), pre_l = NULL;
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)), pre_l = NULL;
 		ptr_l != NULL;
 		pre_l = ptr_l, ptr_l = ptr_l->next) {
 		
@@ -208,7 +316,59 @@ delete_from_cache(struct tcp_stream *a_tcp)
 
 			if (pre_l == NULL) {
 				// The first match, update head
-				*(elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)) = ptr_l->next;
+				*(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)) = ptr_l->next;
+			} else {
+				// Link to next
+				pre_l->next = ptr_l->next;
+			}
+
+			free(ptr_l);
+
+			return tcb_index;
+		}
+	}
+	
+	printf("Not found??? What's the matter?????\n");
+	exit(0);
+	return -1;
+}
+static idx_type 
+delete_from_cache_bh(struct tcp_stream *a_tcp)
+{
+	sig_type sign;
+	idx_type tcb_index; 
+	int hash_index, i;
+	elem_type *ptr;
+	elem_list_type *ptr_l, *pre_l;
+	struct tuple4 addr;
+
+	addr = a_tcp->addr;
+	sign = calc_signature(addr.saddr, addr.daddr, addr.source, addr.dest);
+
+	hash_index = mk_hash_index(addr);
+
+	// Search the cache
+	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(sign, ptr)) {
+			ptr->signature = 0;
+			return index_e(ptr);
+		}
+	}
+
+	// Search the collision list
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)), pre_l = NULL;
+		ptr_l != NULL;
+		pre_l = ptr_l, ptr_l = ptr_l->next) {
+		
+		if (sig_match_l(sign, ptr_l)) {
+			tcb_index = index_l(ptr_l);
+
+			if (pre_l == NULL) {
+				// The first match, update head
+				*(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)) = ptr_l->next;
 			} else {
 				// Link to next
 				pre_l->next = ptr_l->next;
@@ -248,7 +408,13 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp)
 	}
 	tcp_num --;
 
-	tcb_index = delete_from_cache(a_tcp);
+	if (a_tcp->client.state == TCP_SYN_SENT ||
+		a_tcp->server.state == TCP_SYN_RECV) {
+		// Not reach TCP_ESTABLISHED yet, find in the top half
+		tcb_index = delete_from_cache_th(a_tcp);
+	} else {
+		tcb_index = delete_from_cache_bh(a_tcp);
+	}
 	ret_free_index(tcb_index);
 	return;
 }
@@ -260,9 +426,15 @@ tcp_init(int size)
 	struct tcp_timeout *tmp;
 
 	// The hash table
-	tcp_stream_table_size = SET_NUMBER;
-	tcp_stream_table = calloc(SET_NUMBER, SET_SIZE);
-	if (!tcp_stream_table) {
+	tcp_stream_table_size = SET_NUMBER_BH;
+	tcp_stream_table_th = calloc(SET_NUMBER_TH, SET_SIZE);
+	if (!tcp_stream_table_th) {
+		printf("tcp_stream_table in tcp_init");
+		exit(0);
+		return -1;
+	}
+	tcp_stream_table_bh = calloc(SET_NUMBER_BH, SET_SIZE);
+	if (!tcp_stream_table_bh) {
 		printf("tcp_stream_table in tcp_init");
 		exit(0);
 		return -1;
@@ -295,113 +467,81 @@ tcp_exit(void)
 	struct lurker_node *j;
 	struct tcp_stream *a_tcp, *t_tcp;
 
-	if (!tcp_stream_table || !tcb_array)
+	if (!tcp_stream_table_th || !tcp_stream_table_bh || !tcb_array)
 		return;
 	free(tcb_array);
-	free(tcp_stream_table);
-	tcp_stream_table = NULL;
+	free(tcp_stream_table_th);
+	free(tcp_stream_table_bh);
+	tcp_stream_table_th = NULL;
+	tcp_stream_table_bh = NULL;
 	tcp_num = 0;
 	return;
 }
 
 void
-process_tcp(u_char * data, int skblen)
+process_tcp(u_char *data, int skblen)
 {
 	struct ip *this_iphdr = (struct ip *)data;
 	struct tcphdr *this_tcphdr = (struct tcphdr *)(data + 4 * this_iphdr->ip_hl);
 	int datalen, iplen;
-	int from_client = 1;
+	int from_client = 1, from_bh = 1;
 	unsigned int tmp_ts;
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
+	idx_type index;
 
-	//  ugly_iphdr = this_iphdr;
+//	ugly_iphdr = this_iphdr;
 	iplen = ntohs(this_iphdr->ip_len);
 	if ((unsigned)iplen < 4 * this_iphdr->ip_hl + sizeof(struct tcphdr)) {
-		nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_HDR, this_iphdr,
-				this_tcphdr);
 		return;
 	} // ktos sie bawi
-
+  
 	datalen = iplen - 4 * this_iphdr->ip_hl - 4 * this_tcphdr->th_off;
-
-	if (datalen < 0) {
-		nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_HDR, this_iphdr,
-				this_tcphdr);
-		return;
-	} // ktos sie bawi
-
-	if ((this_iphdr->ip_src.s_addr | this_iphdr->ip_dst.s_addr) == 0) {
-		nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_HDR, this_iphdr,
-				this_tcphdr);
+  
+	if (datalen < 0 || ((this_iphdr->ip_src.s_addr | this_iphdr->ip_dst.s_addr) == 0)) {
 		return;
 	}
-	//  if (!(this_tcphdr->th_flags & TH_ACK))
-	//    detect_scan(this_iphdr);
-	if (!nids_params.n_tcp_streams) return;
 
-#if 0
+#if 1
 	{
-		printf("IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
-				this_iphdr->ip_src.s_addr & 0x000000ff,
-				(this_iphdr->ip_src.s_addr & 0x0000ff00) >> 8,
-				(this_iphdr->ip_src.s_addr & 0x00ff0000) >> 16,
-				(this_iphdr->ip_src.s_addr & 0xff000000) >> 24
-		      );
-		printf("daddr = %d.%d.%d.%d,", 
-				this_iphdr->ip_dst.s_addr & 0x000000ff,
-				(this_iphdr->ip_dst.s_addr & 0x0000ff00) >> 8,
-				(this_iphdr->ip_dst.s_addr & 0x00ff0000) >> 16,
-				(this_iphdr->ip_dst.s_addr & 0xff000000) >> 24
-		      );
-		printf("sport = %d, dport = %d\n", this_tcphdr->th_sport, this_tcphdr->th_dport);
+	processed_num ++;
+	printf("| %d |IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
+		processed_num,
+		this_iphdr->ip_src.s_addr & 0x000000ff,
+		(this_iphdr->ip_src.s_addr & 0x0000ff00) >> 8,
+		(this_iphdr->ip_src.s_addr & 0x00ff0000) >> 16,
+		(this_iphdr->ip_src.s_addr & 0xff000000) >> 24);
+	printf("daddr = %d.%d.%d.%d,", 
+		this_iphdr->ip_dst.s_addr & 0x000000ff,
+		(this_iphdr->ip_dst.s_addr & 0x0000ff00) >> 8,
+		(this_iphdr->ip_dst.s_addr & 0x00ff0000) >> 16,
+		(this_iphdr->ip_dst.s_addr & 0xff000000) >> 24);
+	printf("sport = %d, dport = %d\n", this_tcphdr->th_sport, this_tcphdr->th_dport);
 	}
 #endif
 
-#if 0
-	if (my_tcp_check(this_tcphdr, iplen - 4 * this_iphdr->ip_hl,
-				this_iphdr->ip_src.s_addr, this_iphdr->ip_dst.s_addr)) {
-		nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_HDR, this_iphdr,
-				this_tcphdr);
+	// FIXME: In libnids, connection is find first to avoid the single SYN-Attack
+	// This is designed for normal TCP which can accerlerate TCP processing
+	// Check can be made when adding connections into Top Half cache
+	if ((this_tcphdr->th_flags & TH_SYN) &&
+		!(this_tcphdr->th_flags & TH_ACK) &&
+		!(this_tcphdr->th_flags & TH_RST)) {
+		// SYN Packet, Add the tcp connection block
+		add_new_tcp(this_tcphdr, this_iphdr);
 		return;
 	}
-	check_flags(this_iphdr, this_tcphdr);
-	//ECN
-#endif
-	if (!(a_tcp = find_stream(this_tcphdr, this_iphdr, &from_client))) {
-		if ((this_tcphdr->th_flags & TH_SYN) &&
-				!(this_tcphdr->th_flags & TH_ACK) &&
-				!(this_tcphdr->th_flags & TH_RST))
-			add_new_tcp(this_tcphdr, this_iphdr);
-		return;
-	}
+	
+	// Second packet of Three-way hand-shaking, ACK+SYN
+	if ((this_tcphdr->th_flags & TH_SYN) &&
+		(this_tcphdr->th_flags & TH_ACK)) {
 
-	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
-		a_tcp->addr.dest == this_tcphdr->th_dport &&
-		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
-		a_tcp->addr.daddr == this_iphdr->ip_dst.s_addr) ||
-		(a_tcp->addr.dest == this_tcphdr->th_sport &&
-		a_tcp->addr.source == this_tcphdr->th_dport &&
-		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
-		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
-		false_positive ++;
-	}
-
-
-	if (from_client) {
-		snd = &a_tcp->client;
-		rcv = &a_tcp->server;
-	}
-	else {
-		rcv = &a_tcp->client;
-		snd = &a_tcp->server;
-	}
-	if ((this_tcphdr->th_flags & TH_SYN)) {
+		// Find stream in the top half of connection table (Connections not established)
+		a_tcp = find_stream_th(this_tcphdr, this_iphdr, &from_client);
 		if (from_client || a_tcp->client.state != TCP_SYN_SENT ||
-				a_tcp->server.state != TCP_CLOSE || !(this_tcphdr->th_flags & TH_ACK))
+			a_tcp->server.state != TCP_CLOSE || !(this_tcphdr->th_flags & TH_ACK) ||
+			a_tcp->client.seq != ntohl(this_tcphdr->th_ack))
 			return;
-		if (a_tcp->client.seq != ntohl(this_tcphdr->th_ack))
-			return;
+
 		a_tcp->server.state = TCP_SYN_RECV;
 		a_tcp->server.seq = ntohl(this_tcphdr->th_seq) + 1;
 		a_tcp->server.first_data_seq = a_tcp->server.seq;
@@ -418,25 +558,55 @@ process_tcp(u_char * data, int skblen)
 				a_tcp->client.wscale_on = 0;
 				a_tcp->client.wscale  = 1;
 				a_tcp->server.wscale = 1;
-			}	
+				}	
 		} else {
 			a_tcp->server.wscale_on = 0;	
 			a_tcp->server.wscale = 1;
 		}	
 		return;
 	}
-	//  printf("datalen = %d, th_seq = %d, ack_seq = %d, window = %d, wscale = %d\n",
-	//	  	datalen, this_tcphdr->th_seq, rcv->ack_seq, rcv->window, rcv->wscale);
-	if (
-			! (  !datalen && ntohl(this_tcphdr->th_seq) == rcv->ack_seq  )
-			&&
-			( !before(ntohl(this_tcphdr->th_seq), rcv->ack_seq + rcv->window*rcv->wscale) ||
-			  before(ntohl(this_tcphdr->th_seq) + datalen, rcv->ack_seq)  
-			)
-	   )    { 
+
+
+	// Find TCB in the bottom half first(Established connections), 
+	// then find in the top half if not found.
+	if (!(a_tcp = find_stream_bh(this_tcphdr, this_iphdr, &from_client))) {
+		// Cannot find in Established Connections, Find in the unestablished ones
+		from_bh = 0;
+		if (!(a_tcp = find_stream_th(this_tcphdr, this_iphdr, &from_client))) {
+			return;
+		}
+	}
+
+	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
+		a_tcp->addr.dest == this_tcphdr->th_dport &&
+		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
+		a_tcp->addr.daddr == this_iphdr->ip_dst.s_addr) ||
+		(a_tcp->addr.dest == this_tcphdr->th_sport &&
+		a_tcp->addr.source == this_tcphdr->th_dport &&
+		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
+		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
+ 		false_positive ++;
+	}
+
+
+	if (from_client) {
+		snd = &a_tcp->client;
+		rcv = &a_tcp->server;
+	} else {
+		rcv = &a_tcp->client;
+		snd = &a_tcp->server;
+	}
+
+	//printf("datalen = %d, th_seq = %d, ack_seq = %d, window = %d, wscale = %d\n",
+	//	datalen, this_tcphdr->th_seq, rcv->ack_seq, rcv->window, rcv->wscale);
+	// Some error detection, uses window, wscale
+	if ( !(!datalen && ntohl(this_tcphdr->th_seq) == rcv->ack_seq) &&
+		(!before(ntohl(this_tcphdr->th_seq), rcv->ack_seq + rcv->window*rcv->wscale) ||
+		before(ntohl(this_tcphdr->th_seq) + datalen, rcv->ack_seq))) { 
 		return;
 	}
 
+	// Connection is reset
 	if ((this_tcphdr->th_flags & TH_RST)) {
 		if (a_tcp->nids_state == NIDS_DATA) {
 			struct lurker_node *i;
@@ -450,13 +620,15 @@ process_tcp(u_char * data, int skblen)
 	}
 
 	/* PAWS check */
-	if (rcv->ts_on && get_ts(this_tcphdr, &tmp_ts) && 
-			before(tmp_ts, snd->curr_ts))
+	if (rcv->ts_on && get_ts(this_tcphdr, &tmp_ts) && before(tmp_ts, snd->curr_ts))
 		return; 	
-
+  
 	if ((this_tcphdr->th_flags & TH_ACK)) {
+
+		// The third ACK of Three-way hand-shaking
+		// TCP connection turns into Established
 		if (from_client && a_tcp->client.state == TCP_SYN_SENT &&
-				a_tcp->server.state == TCP_SYN_RECV) {
+			a_tcp->server.state == TCP_SYN_RECV) {
 			if (ntohl(this_tcphdr->th_ack) == a_tcp->server.seq) {
 				a_tcp->client.state = TCP_ESTABLISHED;
 				a_tcp->client.ack_seq = ntohl(this_tcphdr->th_ack);
@@ -510,9 +682,14 @@ process_tcp(u_char * data, int skblen)
 					a_tcp->nids_state = NIDS_DATA;
 				}
 			}
+
+			// Move the connection from top half to bottom half
+			index = delete_from_cache_th(a_tcp);
+			add_into_cache_bh(a_tcp->addr, index, a_tcp);
 			// return;
 		}
 	}
+
 	if ((this_tcphdr->th_flags & TH_ACK)) {
 		handle_ack(snd, ntohl(this_tcphdr->th_ack));
 		if (rcv->state == FIN_SENT)
@@ -527,10 +704,12 @@ process_tcp(u_char * data, int skblen)
 			return;
 		}
 	}
+
 	if (datalen + (this_tcphdr->th_flags & TH_FIN) > 0)
 		tcp_queue(a_tcp, this_tcphdr, snd, rcv,
-				(char *) (this_tcphdr) + 4 * this_tcphdr->th_off,
-				datalen, skblen);
+			(char *) (this_tcphdr) + 4 * this_tcphdr->th_off,
+			datalen, skblen);
+		
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);

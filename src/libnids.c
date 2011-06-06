@@ -239,8 +239,8 @@ void nids_pcap_handler(u_char * par, struct pcap_pkthdr *hdr, u_char * data)
      * happen only when nids_params.tcp_workarounds is non-zero;
      * otherwise nids_tcp_timeouts is always NULL.
      */
-    if (NULL != nids_tcp_timeouts)
-      tcp_check_timeouts(&hdr->ts);
+//    if (NULL != nids_tcp_timeouts)
+//      tcp_check_timeouts(&hdr->ts);
 
     nids_last_pcap_header = hdr;
     nids_last_pcap_data = data;

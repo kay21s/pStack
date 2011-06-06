@@ -1,9 +1,7 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 
-#include "conn_tcp.h"
-
-#define MAX_STREAM (1 << 20)
+#include "conn_attribute.h"
 
 idx_type get_free_index(void);
 void ret_free_index(idx_type);

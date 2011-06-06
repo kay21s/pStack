@@ -22,6 +22,8 @@
 #include "nids.h"
 #include "hash.h"
 #include "conn_tcp.h"
+#include "conn_split.h"
+#include "conn_attribute.h"
 
 #if ! HAVE_TCP_STATES
 enum {
@@ -40,27 +42,20 @@ enum {
 
 #endif
 
-#define FIN_SENT 120
-#define FIN_CONFIRMED 121
-#define COLLECT_cc 1
-#define COLLECT_sc 2
-#define COLLECT_ccu 4
-#define COLLECT_scu 8
-
 #define EXP_SEQ (snd->first_data_seq + rcv->count + rcv->urg_count)
 
 extern struct proc_node *tcp_procs;
 
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
 static struct tcp_stream **tcp_stream_table;
 static struct tcp_stream *streams_pool;
 static int max_stream;
 static struct tcp_stream *tcp_latest = 0, *tcp_oldest = 0;
+int false_positive = 0;
 #endif
 
 int tcp_num = 0;
 int tcp_stream_table_size;
-int false_positive = 0;
 
 static struct tcp_stream *free_streams;
 static struct ip *ugly_iphdr;
@@ -132,7 +127,7 @@ del_tcp_closing_timeout(struct tcp_stream * a_tcp)
   free(to);
 }
 
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
 void
 nids_free_tcp_stream(struct tcp_stream * a_tcp)
 {
@@ -173,7 +168,6 @@ nids_free_tcp_stream(struct tcp_stream * a_tcp)
   free_streams = a_tcp;
   tcp_num--;
 }
-#endif
 
 void
 tcp_check_timeouts(struct timeval *now)
@@ -192,6 +186,7 @@ tcp_check_timeouts(struct timeval *now)
     nids_free_tcp_stream(to->a_tcp);
   }
 }
+#endif
 
 u_int
 mk_hash_index(struct tuple4 addr)
@@ -259,7 +254,7 @@ int get_wscale(struct tcphdr * this_tcphdr, unsigned int * ws)
 
     
 
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
 static void
 add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
 {
@@ -498,7 +493,7 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
   }
 }
 
-static void
+void
 tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
 	  struct half_stream * snd, struct half_stream * rcv,
 	  char *data, int datalen, int skblen
@@ -604,12 +599,12 @@ tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
   }
 }
 
-static void
+void
 prune_queue(struct half_stream * rcv, struct tcphdr * this_tcphdr)
 {
   struct skbuff *tmp, *p = rcv->list;
 
-  nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_BIGQUEUE, ugly_iphdr, this_tcphdr);
+//  nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_BIGQUEUE, ugly_iphdr, this_tcphdr);
   while (p) {
     free(p->data);
     tmp = p->next;
@@ -620,7 +615,7 @@ prune_queue(struct half_stream * rcv, struct tcphdr * this_tcphdr)
   rcv->rmem_alloc = 0;
 }
 
-static void
+void
 handle_ack(struct half_stream * snd, u_int acknum)
 {
   int ackdiff;
@@ -641,7 +636,7 @@ check_flags(struct ip * iph, struct tcphdr * th)
 }
 #endif
 
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
 struct tcp_stream *
 find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
 	    int *from_client)
@@ -713,7 +708,6 @@ void tcp_exit(void)
 //  tcp_latest = tcp_oldest = NULL;
   tcp_num = 0;
 }
-#endif
 
 void
 process_tcp(u_char * data, int skblen)
@@ -948,6 +942,7 @@ process_tcp(u_char * data, int skblen)
   if (!a_tcp->listeners)
     nids_free_tcp_stream(a_tcp);
 }
+#endif
 
 void
 nids_discard(struct tcp_stream * a_tcp, int num)
@@ -968,7 +963,7 @@ nids_unregister_tcp(void (*x))
   unregister_callback(&tcp_procs, x);
 }
 
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
 int
 tcp_init(int size)
 {
