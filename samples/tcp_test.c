@@ -27,6 +27,10 @@ extern uint64_t tcp_proc_time;
 extern uint64_t tcp_proc_num;
 extern int false_positive;
 extern int conflict_into_list;
+extern int search_num, search_hit_num;
+extern int add_num, add_hit_num;
+extern int delete_num, delete_hit_num;
+extern int not_found;
 
 void
 tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
@@ -80,6 +84,8 @@ main ()
 	nids_run ();
 	printf("TCP time is %llu, number = %d\n", tcp_proc_time/tcp_proc_num, tcp_proc_num);
 	printf("false positive = %d, conflict into list = %d\n", false_positive, conflict_into_list);
+	printf("Major location statistics: Search : %d/%d, Not found : %d, Add : %d/%d, Delete : %d/%d\n",
+		search_hit_num, search_num, not_found, add_hit_num, add_num, delete_hit_num, delete_num);
 
 	return 0;
 }

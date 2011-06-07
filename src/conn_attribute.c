@@ -57,4 +57,18 @@ inline idx_type index_e(const elem_type *ptr)
 {
 	return ptr->index;
 }
+
+inline idx_type get_cached_index(const void *set_header, const int pos)
+{
+	elem_type *ptr = (elem_type *)set_header + pos;
+
+	return ptr->index;
+}
+
+inline void store_cached_index(const void *set_header, const int pos, const idx_type index)
+{
+	elem_type *ptr = (elem_type *)set_header + pos;
+	ptr->index = index;
+	return;
+}
 #endif

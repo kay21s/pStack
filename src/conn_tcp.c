@@ -15,6 +15,12 @@
 
 int conflict_into_list = 0;
 int false_positive = 0;
+
+int search_num = 0, search_hit_num = 0;
+int add_num = 0, add_hit_num = 0;
+int delete_num = 0, delete_hit_num = 0;
+int not_found = 0;
+
 extern struct proc_node *tcp_procs;
 
 static void *tcp_stream_table;
@@ -69,16 +75,28 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	search_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		tcb_index = get_cached_index(set_header, loc);
+		if (addr.source == tcb_array[tcb_index].addr.source)
+			*from_client = 1;
+		else
+			*from_client = 0;
+
+		search_hit_num ++;
+		return &tcb_array[tcb_index];
+	}
+#endif
+
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-#if defined(COMPACT_TABLE)
 			tcb_index = get_cached_index(set_header, i);
-#else
-			tcb_index = index_e(ptr);
-#endif
 			if (addr.source == tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
@@ -104,6 +122,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	}
 
 	// Not found
+	not_found ++;
 	return NULL;
 }
 
@@ -121,17 +140,25 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	add_num ++;
+	if (sig_match_e(0, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = sign;
+		store_cached_index(set_header, loc, index);
+		add_hit_num ++;
+		return;
+	}
+#endif
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-#if defined(COMPACT_TABLE)
 			store_cached_index(set_header, i, index);
-#else
-			ptr->index = index;
-#endif
 			return;
 		}
 	}
@@ -201,17 +228,25 @@ delete_from_cache(struct tcp_stream *a_tcp)
 
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	delete_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = 0;
+		tcb_index = get_cached_index(set_header, loc);
+		delete_hit_num ++;
+		return tcb_index;
+	}
+#endif
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
 			ptr->signature = 0;
-#if defined(COMPACT_TABLE)
 			tcb_index = get_cached_index(set_header, i);
-#else
-			tcb_index = index_e(ptr);
-#endif
 			return tcb_index;
 		}
 	}
