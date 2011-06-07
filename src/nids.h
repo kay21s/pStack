@@ -74,11 +74,11 @@ struct half_stream
   int rmem_alloc;
 
   int urg_count;
-  u_int acked;
+//  u_int acked;
   u_int seq;
   u_int ack_seq;
   u_int first_data_seq;
-  u_char urgdata;
+//  u_char urgdata;
   u_char count_new_urg;
   u_char urg_seen;
   u_int urg_ptr;

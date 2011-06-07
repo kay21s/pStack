@@ -456,7 +456,7 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
 	rcv->offset = rcv->count; /* clear the buffer */
       }
     }
-    rcv->urgdata = data[rcv->urg_ptr - this_seq];
+//    rcv->urgdata = data[rcv->urg_ptr - this_seq];
     rcv->count_new_urg = 1;
     notify(a_tcp, rcv);
     rcv->count_new_urg = 0;
