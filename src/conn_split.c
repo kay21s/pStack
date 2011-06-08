@@ -17,6 +17,12 @@
 int conflict_into_list = 0;
 int false_positive = 0;
 int processed_num = 0;
+
+int search_num = 0, search_hit_num = 0;
+int add_num = 0, add_hit_num = 0;
+int delete_num = 0, delete_hit_num = 0;
+int not_found = 0;
+
 extern struct proc_node *tcp_procs;
 
 static void *tcp_stream_table_th;
@@ -55,6 +61,7 @@ find_stream_th(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 	elem_list_type *ptr_l;
 	sig_type sign;
 	struct tuple4 addr;
+	idx_type tcb_index;
 	
 	addr.source = this_tcphdr->th_sport;
 	addr.dest = this_tcphdr->th_dport;
@@ -69,22 +76,40 @@ find_stream_th(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 			this_tcphdr->th_dport);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	search_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		tcb_index = get_cached_index(set_header, loc);
+		if (addr.source == tcb_array[tcb_index].addr.source)
+			*from_client = 1;
+		else
+			*from_client = 0;
+
+		search_hit_num ++;
+		return &tcb_array[tcb_index];
+	}
+#endif
+
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-			if (addr.source == tcb_array[index_e(ptr)].addr.source)
+			tcb_index = get_cached_index(set_header, i);
+			if (addr.source == tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
 				*from_client = 0;
 
-			return &tcb_array[index_e(ptr)];
+			return &tcb_array[tcb_index];
 		}
 	}
 
 	// Not in cache, search collision linked list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 		ptr_l != NULL;
 		ptr_l = ptr_l->next) {
 		
@@ -99,6 +124,7 @@ find_stream_th(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 	}
 
 	// Not found
+	not_found ++;
 	return NULL;
 }
 
@@ -110,6 +136,7 @@ find_stream_bh(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 	elem_list_type *ptr_l;
 	sig_type sign;
 	struct tuple4 addr;
+	idx_type tcb_index;
 	
 	addr.source = this_tcphdr->th_sport;
 	addr.dest = this_tcphdr->th_dport;
@@ -124,22 +151,40 @@ find_stream_bh(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 			this_tcphdr->th_dport);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	search_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		tcb_index = get_cached_index(set_header, loc);
+		if (addr.source == tcb_array[tcb_index].addr.source)
+			*from_client = 1;
+		else
+			*from_client = 0;
+
+		search_hit_num ++;
+		return &tcb_array[tcb_index];
+	}
+#endif
+
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-			if (addr.source == tcb_array[index_e(ptr)].addr.source)
+			tcb_index = get_cached_index(set_header, i);
+			if (addr.source == tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
 				*from_client = 0;
 
-			return &tcb_array[index_e(ptr)];
+			return &tcb_array[tcb_index];
 		}
 	}
 
 	// Not in cache, search collision linked list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 		ptr_l != NULL;
 		ptr_l = ptr_l->next) {
 		
@@ -154,6 +199,7 @@ find_stream_bh(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_clie
 	}
 
 	// Not found
+	not_found ++;
 	return NULL;
 }
 
@@ -186,13 +232,26 @@ add_into_cache_th(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	a_tcp->hash_index = hash_index;
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	add_num ++;
+	if (sig_match_e(0, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = sign;
+		store_cached_index(set_header, loc, index);
+		add_hit_num ++;
+		return;
+	}
+#endif
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-			ptr->index = index;
+			store_cached_index(set_header, i, index);
 			return;
 		}
 	}
@@ -201,7 +260,7 @@ add_into_cache_th(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
 	*head_l = ptr_l;
@@ -221,13 +280,26 @@ add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	a_tcp->hash_index = hash_index;
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	add_num ++;
+	if (sig_match_e(0, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = sign;
+		store_cached_index(set_header, loc, index);
+		add_hit_num ++;
+		return;
+	}
+#endif
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-			ptr->index = index;
+			store_cached_index(set_header, i, index);
 			return;
 		}
 	}
@@ -236,7 +308,7 @@ add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type));
+	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
 	*head_l = ptr_l;
@@ -296,18 +368,32 @@ delete_from_cache_th(struct tcp_stream *a_tcp)
 	hash_index = mk_hash_index(addr);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	delete_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = 0;
+		tcb_index = get_cached_index(set_header, loc);
+		delete_hit_num ++;
+		return tcb_index;
+	}
+#endif
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
 			ptr->signature = 0;
-			return index_e(ptr);
+			tcb_index = get_cached_index(set_header, i);
+			return tcb_index;
 		}
 	}
 
 	// Search the collision list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)), pre_l = NULL;
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE), pre_l = NULL;
 		ptr_l != NULL;
 		pre_l = ptr_l, ptr_l = ptr_l->next) {
 		
@@ -316,7 +402,7 @@ delete_from_cache_th(struct tcp_stream *a_tcp)
 
 			if (pre_l == NULL) {
 				// The first match, update head
-				*(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)) = ptr_l->next;
+				*(elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE) = ptr_l->next;
 			} else {
 				// Link to next
 				pre_l->next = ptr_l->next;
@@ -348,18 +434,32 @@ delete_from_cache_bh(struct tcp_stream *a_tcp)
 	hash_index = mk_hash_index(addr);
 
 	// Search the cache
-	for (ptr = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]), i = 0;
+	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]);
+
+#if defined(MAJOR_LOCATION)
+	uint8_t loc = get_major_location(sign);
+	delete_num ++;
+	if (sig_match_e(sign, set_header + loc)) {
+		ptr = set_header + loc;
+		ptr->signature = 0;
+		tcb_index = get_cached_index(set_header, loc);
+		delete_hit_num ++;
+		return tcb_index;
+	}
+#endif
+	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
 			ptr->signature = 0;
-			return index_e(ptr);
+			tcb_index = get_cached_index(set_header, i);
+			return tcb_index;
 		}
 	}
 
 	// Search the collision list
-	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)), pre_l = NULL;
+	for (ptr_l = *(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE), pre_l = NULL;
 		ptr_l != NULL;
 		pre_l = ptr_l, ptr_l = ptr_l->next) {
 		
@@ -368,7 +468,7 @@ delete_from_cache_bh(struct tcp_stream *a_tcp)
 
 			if (pre_l == NULL) {
 				// The first match, update head
-				*(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_ASSOCIATIVE * sizeof(elem_type)) = ptr_l->next;
+				*(elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE) = ptr_l->next;
 			} else {
 				// Link to next
 				pre_l->next = ptr_l->next;
@@ -502,7 +602,7 @@ process_tcp(u_char *data, int skblen)
 		return;
 	}
 
-#if 1
+#if 0
 	{
 	processed_num ++;
 	printf("| %d |IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 

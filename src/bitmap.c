@@ -34,10 +34,16 @@ idx_type find_free_index()
 			continue;
 
 		// find a bit is zero
+#if defined(BUILTIN_FUNC)
+		j = __builtin_ffsll(~bitmap[i]) - 1;
+		if (j >= 0)
+			return (idx_type)(i * BITSPERWORD + j);
+#else
 		for (j = 0; j < BITSPERWORD; j ++) {
 			if (!(bitmap[i] & (1 << j)))
 				return (idx_type)(i * BITSPERWORD + j);
 		}
+#endif
 	}
 
 	printf("Run out of bits????? Too many connections?????\n");

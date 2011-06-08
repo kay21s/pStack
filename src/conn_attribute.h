@@ -59,5 +59,7 @@ inline int sig_match_e(const sig_type, const elem_type *);
 inline int sig_match_l(const sig_type, const elem_list_type *);
 inline idx_type index_e(const elem_type *);
 inline idx_type index_l(const elem_list_type *);
+inline idx_type get_cached_index(const void *, const int);
+inline void store_cached_index(const void *, const int, const idx_type);
 
 #endif
