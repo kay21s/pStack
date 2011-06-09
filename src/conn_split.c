@@ -260,6 +260,8 @@ add_into_cache_th(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+	store_index_l(ptr_l, index);
+	store_sig_l(ptr_l, sign);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
@@ -308,6 +310,8 @@ add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+	store_index_l(ptr_l, index);
+	store_sig_l(ptr_l, sign);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;

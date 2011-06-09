@@ -17,8 +17,8 @@ LIBSHARED      = libnids.so.1.24
 
 CC		= gcc
 CFLAGS		= -g -D_BSD_SOURCE -DLIBNET_VER=-1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1 
-CFLAGS		+= -DNEW_TCP_0 -DSPLIT_TCP -DORIGIN_0 -DCOMPACT_TABLE_0 
-CFLAGS		+= -DMAJOR_LOCATION_0 -DBUILTIN_FUNC_0
+CFLAGS		+= -DNEW_TCP_0 -DSPLIT_TCP_0 -DORIGIN_0 -DINDEXFREE_TCP
+CFLAGS		+= -DMAJOR_LOCATION_0 -DBUILTIN_FUNC -DCOMPACT_TABLE
 LDFLAGS		= 
 
 PCAP_CFLAGS	= -I/usr/local/include
@@ -30,7 +30,7 @@ INSTALL		= /usr/bin/install -c
 
 OBJS		= checksum.o ip_fragment.o ip_options.o killtcp.o \
 		  libnids.o scan.o tcp.o util.o allpromisc.o hash.o \
-		  conn_tcp.o bitmap.o conn_split.o conn_attribute.o
+		  conn_tcp.o bitmap.o conn_split.o conn_attribute.o conn_indexfree.o
 OBJS_SHARED	= $(OBJS:.o=_pic.o)
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<
@@ -66,6 +66,8 @@ conn_split_pic.o: conn_split.c
 	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_split.c -o $@
 conn_attribute_pic.o: conn_attribute.c
 	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_attribute.c -o $@
+conn_indexfree_pic.o: conn_indexfree.c
+	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_indexfree.c -o $@
 
 
 $(LIBSTATIC): $(OBJS)

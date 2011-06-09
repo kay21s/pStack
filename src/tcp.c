@@ -23,6 +23,7 @@
 #include "hash.h"
 #include "conn_tcp.h"
 #include "conn_split.h"
+#include "conn_indexfree.h"
 #include "conn_attribute.h"
 
 #if ! HAVE_TCP_STATES

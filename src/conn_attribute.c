@@ -1,9 +1,22 @@
 #include "conn_attribute.h"
+#if defined(CRC_SIGN)
+#include  <nmmintrin.h>
+#endif
 
 inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uint16_t sport, const uint16_t dport)
 {
 	uint32_t port = sport ^ dport;
+#if defined(CRC_SIGN)
+	unsigned int crc1 = _mm_crc32_u32(crc, sip);
+	crc1 = _mm_crc32_u32(crc, dip);
+	crc1 = _mm_crc32_u32(crc, port);
+	unsigned int crc2 = _mm_crc32_u32(crc, dip);
+	crc2 = _mm_crc32_u32(crc, sip);
+	crc2 = _mm_crc32_u32(crc, port);
+	return (sig_type)(crc1 ^ crc2);
+#else
 	return sip ^ dip ^ port;
+#endif
 }
 
 inline int sig_match_e(const sig_type sign, const elem_type *ptr)
@@ -16,7 +29,33 @@ inline int sig_match_l(const sig_type sign, const elem_list_type *ptr)
 	return (sign == ptr->elem.signature)? 1 : 0;
 }
 
-#if defined(COMPACT_TABLE)
+inline void store_sig_l(const sig_type sign, elem_list_type *ptr)
+{
+	ptr->elem.signature = sign;
+}
+
+#if defined(INDEXFREE_TCP)
+inline void store_index_l(const idx_type index, elem_list_type *ptr)
+{
+	ptr->index = index;
+}
+
+inline idx_type index_l(const elem_list_type *ptr)
+{
+	return ptr->index;
+}
+
+inline idx_type calc_index(const int hash_index, const int pos)
+{
+	return (idx_type)(hash_index * SET_ASSOCIATIVE + pos);
+}
+
+#elif defined(COMPACT_TABLE)
+inline void store_index_l(const idx_type index, elem_list_type *ptr)
+{
+	ptr->index = index;
+}
+
 inline idx_type index_l(const elem_list_type *ptr)
 {
 	return ptr->index;
@@ -48,6 +87,11 @@ inline uint8_t get_major_location(sig_type sign)
 }
 
 #else
+inline void store_index_l(const idx_type index, elem_list_type *ptr)
+{
+	ptr->elem.index = index;
+}
+
 inline idx_type index_l(const elem_list_type *ptr)
 {
 	return ptr->elem.index;
