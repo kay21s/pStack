@@ -154,8 +154,8 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	store_index_l(ptr_l, index);
-	store_sig_l(ptr_l, sign);
+	store_index_l(index, ptr_l);
+	store_sig_l(sign, ptr_l);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;

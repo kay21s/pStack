@@ -114,7 +114,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	return NULL;
 }
 
-static idx_type add_into_cache(struct tuple4 addr, struct tcp_stream *a_tcp)
+static idx_type add_into_cache(struct tuple4 addr)
 {
 	sig_type sign;
 	int hash_index, i;
@@ -125,7 +125,6 @@ static idx_type add_into_cache(struct tuple4 addr, struct tcp_stream *a_tcp)
 	sign = calc_signature(addr.saddr, addr.daddr, addr.source, addr.dest);
 
 	hash_index = mk_hash_index(addr);
-	a_tcp->hash_index = hash_index;
 
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
@@ -184,7 +183,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr)
 	tcp_num++;
 
 	// add the index into hash cache
-	index = add_into_cache(addr, a_tcp);
+	index = add_into_cache(addr);
 
 	// let's have the block
 	a_tcp = &(tcb_array[index]);

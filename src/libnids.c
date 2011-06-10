@@ -94,7 +94,8 @@ struct nids_prm nids_params = {
     1040,			/* n_tcp_streams */
     256,			/* n_hosts */
     NULL,			/* device */
-    "a.pcap",			/* filename */
+//    "/home/kay/trace/merged.pcap",			/* filename */
+    "a.pcap",
     168,			/* sk_buff_size */
     -1,				/* dev_addon */
     nids_syslog,		/* syslog() */
@@ -614,6 +615,9 @@ int nids_init()
 	if ((desc = pcap_open_offline(nids_params.filename,
 				      nids_errbuf)) == NULL)
 	    return 0;
+#if defined(PRE_MEM)
+	pre_mem_init(desc);
+#endif
     } else if (!open_live())
 	return 0;
 

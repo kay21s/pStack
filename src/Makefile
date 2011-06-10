@@ -16,9 +16,11 @@ LIBSTATIC      = libnids.a
 LIBSHARED      = libnids.so.1.24
 
 CC		= gcc
+# Note: Major location can only be used when COMPACT_TABLE is enabled or INDEXFREE is enabled
+# CRC_SIGN can only be used when msse4.2 is enabled
 CFLAGS		= -g -D_BSD_SOURCE -DLIBNET_VER=-1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1 
 CFLAGS		+= -DNEW_TCP_0 -DSPLIT_TCP_0 -DORIGIN_0 -DINDEXFREE_TCP
-CFLAGS		+= -DMAJOR_LOCATION_0 -DBUILTIN_FUNC -DCOMPACT_TABLE
+CFLAGS		+= -DMAJOR_LOCATION_0 -DBUILTIN_FUNC -DCOMPACT_TABLE -DCRC_SIGN_0 -msse4.2 -DPRE_MEM_0
 LDFLAGS		= 
 
 PCAP_CFLAGS	= -I/usr/local/include

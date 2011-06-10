@@ -260,8 +260,8 @@ add_into_cache_th(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	store_index_l(ptr_l, index);
-	store_sig_l(ptr_l, sign);
+	store_index_l(index, ptr_l);
+	store_sig_l(sign, ptr_l);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_th)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
@@ -286,7 +286,7 @@ add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	add_num ++;
+//	add_num ++;
 	if (sig_match_e(0, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = sign;
@@ -310,8 +310,8 @@ add_into_cache_bh(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp)
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	store_index_l(ptr_l, index);
-	store_sig_l(ptr_l, sign);
+	store_index_l(index, ptr_l);
+	store_sig_l(sign, ptr_l);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table_bh)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
@@ -442,7 +442,7 @@ delete_from_cache_bh(struct tcp_stream *a_tcp)
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	delete_num ++;
+//	delete_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = 0;
@@ -606,9 +606,9 @@ process_tcp(u_char *data, int skblen)
 		return;
 	}
 
+	processed_num ++;
 #if 0
 	{
-	processed_num ++;
 	printf("| %d |IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
 		processed_num,
 		this_iphdr->ip_src.s_addr & 0x000000ff,
@@ -627,11 +627,12 @@ process_tcp(u_char *data, int skblen)
 	// FIXME: In libnids, connection is find first to avoid the single SYN-Attack
 	// This is designed for normal TCP which can accerlerate TCP processing
 	// Check can be made when adding connections into Top Half cache
-	if ((this_tcphdr->th_flags & TH_SYN) &&
-		!(this_tcphdr->th_flags & TH_ACK) &&
-		!(this_tcphdr->th_flags & TH_RST)) {
-		// SYN Packet, Add the tcp connection block
-		add_new_tcp(this_tcphdr, this_iphdr);
+	if (!(a_tcp = find_stream(this_tcphdr, this_iphdr, &from_client))) {
+		if ((this_tcphdr->th_flags & TH_SYN) &&
+			!(this_tcphdr->th_flags & TH_ACK) &&
+			!(this_tcphdr->th_flags & TH_RST))
+			// SYN Packet, Add the tcp connection block
+			add_new_tcp(this_tcphdr, this_iphdr);
 		return;
 	}
 	
@@ -640,7 +641,7 @@ process_tcp(u_char *data, int skblen)
 		(this_tcphdr->th_flags & TH_ACK)) {
 
 		// Find stream in the top half of connection table (Connections not established)
-		a_tcp = find_stream_th(this_tcphdr, this_iphdr, &from_client);
+		//a_tcp = find_stream_th(this_tcphdr, this_iphdr, &from_client);
 		if (from_client || a_tcp->client.state != TCP_SYN_SENT ||
 			a_tcp->server.state != TCP_CLOSE || !(this_tcphdr->th_flags & TH_ACK) ||
 			a_tcp->client.seq != ntohl(this_tcphdr->th_ack))
@@ -670,7 +671,7 @@ process_tcp(u_char *data, int skblen)
 		return;
 	}
 
-
+#if 0
 	// Find TCB in the bottom half first(Established connections), 
 	// then find in the top half if not found.
 	if (!(a_tcp = find_stream_bh(this_tcphdr, this_iphdr, &from_client))) {
@@ -680,6 +681,7 @@ process_tcp(u_char *data, int skblen)
 			return;
 		}
 	}
+#endif
 
 	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
 		a_tcp->addr.dest == this_tcphdr->th_dport &&
@@ -785,11 +787,12 @@ process_tcp(u_char *data, int skblen)
 					}
 					a_tcp->nids_state = NIDS_DATA;
 				}
+
+				// Move the connection from top half to bottom half
+				index = delete_from_cache_th(a_tcp);
+				add_into_cache_bh(a_tcp->addr, index, a_tcp);
 			}
 
-			// Move the connection from top half to bottom half
-			index = delete_from_cache_th(a_tcp);
-			add_into_cache_bh(a_tcp->addr, index, a_tcp);
 			// return;
 		}
 	}

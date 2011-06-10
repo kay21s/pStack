@@ -7,12 +7,14 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 {
 	uint32_t port = sport ^ dport;
 #if defined(CRC_SIGN)
-	unsigned int crc1 = _mm_crc32_u32(crc, sip);
-	crc1 = _mm_crc32_u32(crc, dip);
-	crc1 = _mm_crc32_u32(crc, port);
-	unsigned int crc2 = _mm_crc32_u32(crc, dip);
-	crc2 = _mm_crc32_u32(crc, sip);
-	crc2 = _mm_crc32_u32(crc, port);
+	unsigned int crc1 = 0;
+	crc1 = _mm_crc32_u32(crc1, sip);
+	crc1 = _mm_crc32_u32(crc1, dip);
+	crc1 = _mm_crc32_u32(crc1, port);
+	unsigned int crc2 = 0;
+	crc2 = _mm_crc32_u32(crc2, dip);
+	crc2 = _mm_crc32_u32(crc2, sip);
+	crc2 = _mm_crc32_u32(crc2, port);
 	return (sig_type)(crc1 ^ crc2);
 #else
 	return sip ^ dip ^ port;
@@ -63,14 +65,14 @@ inline idx_type index_l(const elem_list_type *ptr)
 
 inline idx_type get_cached_index(const void *set_header, const int pos)
 {
-	char *ptr = (char *)set_header + INDEX_OFFSET + pos * INDEX_SIZE;
+	uint8_t *ptr = (uint8_t *)set_header + INDEX_OFFSET + pos * INDEX_SIZE;
 
 	return (ptr[0] << 16) + (ptr[1] << 8) + ptr[2];
 }
 
 inline void store_cached_index(const void *set_header, const int pos, const idx_type index)
 {
-	char *ptr = (char *)set_header + INDEX_OFFSET + pos * INDEX_SIZE;
+	uint8_t *ptr = (uint8_t *)set_header + INDEX_OFFSET + pos * INDEX_SIZE;
 
 	ptr[2] = index & 0x0FF;
 	ptr[1] = (index >> 8) & 0x0FF;
