@@ -26,6 +26,30 @@ typedef struct ll_type {
 #define SET_ASSOCIATIVE 14 // (64-8)/4
 #define SET_SIZE CACHE_LINE_SIZE
 
+#elif defined(MAJOR_INDEXFREE_TCP)
+// 16-way set associative, only store signature in cache table
+// TCB index is the same as the signature (hash_index, pos in line)
+// ptr for conflict is not stored in the cacheline, and is stored separately
+// |        16 signature        |  ... |  ptr  |
+
+typedef uint32_t idx_type;
+typedef uint32_t sig_type;
+typedef struct {
+	sig_type signature;
+} elem_type;
+
+typedef struct ll_type {
+	elem_type elem;
+	idx_type index;
+	struct ll_type *next;
+} elem_list_type;
+
+#define MAX_STREAM 1500000
+#define CACHE_LINE_SIZE 64
+#define PTR_SIZE 8
+#define SET_ASSOCIATIVE 16 // 64/4
+#define SET_SIZE CACHE_LINE_SIZE
+
 #elif defined(COMPACT_TABLE)
 // 8-way set associative, store index separately in 3 bytes(24 bits)
 // |   8 signature    |   8 tcb index  | ptr  |

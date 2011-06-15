@@ -36,7 +36,7 @@ inline void store_sig_l(const sig_type sign, elem_list_type *ptr)
 	ptr->elem.signature = sign;
 }
 
-#if defined(INDEXFREE_TCP)
+#if defined(INDEXFREE_TCP) || defined (MAJOR_INDEXFREE_TCP)
 inline void store_index_l(const idx_type index, elem_list_type *ptr)
 {
 	ptr->index = index;
@@ -81,7 +81,7 @@ inline void store_cached_index(const void *set_header, const int pos, const idx_
 }
 
 // This can be altered to better algorithm, 
-// two bits for indexing 8 way-associative
+// three bits for indexing 8 way-associative
 inline uint8_t get_major_location(sig_type sign)
 {
 	// the least significant 3 bits
