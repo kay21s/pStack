@@ -87,6 +87,8 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
 	search_num ++;
+
+	// Search the Major location first
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = calc_index(hash_index, loc);
 		if (addr.source == tcb_array[tcb_index].addr.source)
@@ -98,6 +100,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 		return &tcb_array[tcb_index];
 	}
 
+	// Search the Subset of the Major location
 	uint8_t subset = get_subset_index(sign);
 	for (loc = subset; loc < subset + 4; loc ++) {
 		if (sig_match_e(sign, set_header + loc)) {
@@ -111,7 +114,33 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 			return &tcb_array[tcb_index];
 		}
 	}
-#endif
+
+	// From next subset to the end
+	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+			if (addr.source == tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &tcb_array[tcb_index];
+		}
+	}
+
+	// From start to previous subset
+	for (loc = 0; loc < subset; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+			if (addr.source == tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &tcb_array[tcb_index];
+		}
+	}
+#else
 
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
@@ -127,6 +156,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 			return &tcb_array[tcb_index];
 		}
 	}
+#endif
 
 	// Not in cache, search collision linked list
 	for (ptr_l = conflict_list[hash_index];
@@ -182,7 +212,27 @@ static idx_type add_into_cache(struct tuple4 addr)
 			return calc_index(hash_index, loc);
 		}
 	}
-#endif
+
+	// From next subset to the end
+	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(0, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = sign;
+			add_set_hit_num ++;
+			return calc_index(hash_index, loc);
+		}
+	}
+
+	// From start to previous subset
+	for (loc = 0; loc < subset; loc ++) {
+		if (sig_match_e(0, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = sign;
+			add_set_hit_num ++;
+			return calc_index(hash_index, loc);
+		}
+	}
+#else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
@@ -192,6 +242,7 @@ static idx_type add_into_cache(struct tuple4 addr)
 			return calc_index(hash_index, i);
 		}
 	}
+#endif
 
 	conflict_into_list ++;
 	// Insert into the collision list
@@ -283,7 +334,27 @@ delete_from_cache(struct tcp_stream *a_tcp)
 			return 0;
 		}
 	}
-#endif
+
+	// From next subset to the end
+	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			delete_set_hit_num ++;
+			return 0;
+		}
+	}
+
+	// From start to previous subset
+	for (loc = 0; loc < subset; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			delete_set_hit_num ++;
+			return 0;
+		}
+	}
+#else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
@@ -293,6 +364,7 @@ delete_from_cache(struct tcp_stream *a_tcp)
 			return 0;
 		}
 	}
+#endif
 
 	// Search the collision list
 	for (ptr_l = conflict_list[hash_index];

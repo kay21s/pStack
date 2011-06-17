@@ -24,7 +24,6 @@ void init_bitmap(void)
 // if is 0, the block is free.
 idx_type find_free_index()
 {
-	uint64_t word;
 	uint32_t i, j;
 
 	// FIXME: Can be optimized with a 2nd level bitmap

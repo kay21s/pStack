@@ -5,15 +5,7 @@
 
 srcdir		= .
 
-
-install_prefix	=
-prefix		= /usr/local
-exec_prefix	= /usr/local
-includedir	= ${prefix}/include
-libdir		= ${exec_prefix}/lib
-mandir		= ${prefix}/man
 LIBSTATIC      = libnids.a
-LIBSHARED      = libnids.so.1.24
 
 CC		= gcc
 # Note: Major location can only be used when COMPACT_TABLE is enabled or INDEXFREE is enabled
@@ -21,74 +13,24 @@ CC		= gcc
 CFLAGS		= -g -D_BSD_SOURCE -DLIBNET_VER=-1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1 
 CFLAGS		+= -DNEW_TCP_0 -DSPLIT_TCP_0 -DORIGIN_0 -DINDEXFREE_TCP_0 -DMAJOR_INDEXFREE_TCP
 CFLAGS		+= -DMAJOR_LOCATION -DBUILTIN_FUNC -DCOMPACT_TABLE_0 -DCRC_SIGN_0 -msse4.2 -DPRE_MEM_0
-LDFLAGS		= 
 
-PCAP_CFLAGS	= -I/usr/local/include
-PCAPLIB		= -L/usr/local/lib -lpcap
+#PCAP_CFLAGS	= -I/usr/local/include
+#PCAPLIB		= -L/usr/local/lib -lpcap
 
-LIBS		= -lnsl -pthread 
-RANLIB		= ranlib
-INSTALL		= /usr/bin/install -c
+#LIBS		= -lnsl -pthread 
 
 OBJS		= checksum.o ip_fragment.o ip_options.o killtcp.o \
 		  libnids.o scan.o tcp.o util.o allpromisc.o hash.o \
-		  conn_tcp.o bitmap.o conn_split.o conn_attribute.o conn_indexfree.o conn_major_indexfree.o
-OBJS_SHARED	= $(OBJS:.o=_pic.o)
-.c.o:
-	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<
-static: $(LIBSTATIC)
-shared: $(LIBSHARED)
-# How to write the following rules compactly and portably ? 
-# gmake accepts "%_pic.o: %.c", bsd make does not.
-checksum_pic.o: checksum.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c checksum.c -o $@
-ip_fragment_pic.o: ip_fragment.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c ip_fragment.c -o $@
-ip_options_pic.o: ip_options.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c ip_options.c -o $@
-killtcp_pic.o: killtcp.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c killtcp.c -o $@
-libnids_pic.o: libnids.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c libnids.c -o $@
-scan_pic.o: scan.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c scan.c -o $@
-tcp_pic.o: tcp.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c tcp.c -o $@
-util_pic.o: util.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c util.c -o $@
-allpromisc_pic.o: allpromisc.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c allpromisc.c -o $@
-hash_pic.o: hash.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c hash.c -o $@
-conn_tcp_pic.o: conn_tcp.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_tcp.c -o $@
-bitmap_pic.o: bitmap.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c bitmap.c -o $@
-conn_split_pic.o: conn_split.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_split.c -o $@
-conn_attribute_pic.o: conn_attribute.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_attribute.c -o $@
-conn_indexfree_pic.o: conn_indexfree.c
-	$(CC) -fPIC $(CFLAGS) -I. $(LIBS_CFLAGS) -c conn_indexfree.c -o $@
+		  conn_tcp.o bitmap.o conn_split.o conn_attribute.o \
+		  conn_indexfree.o conn_major_indexfree.o
 
+.c.o:
+	$(CC) -c $(CFLAGS) -I. $<
+static: $(LIBSTATIC)
 
 $(LIBSTATIC): $(OBJS)
 	ar -cr $@ $(OBJS)
-	$(RANLIB) $@
-$(LIBSHARED): $(OBJS_SHARED)
-	$(CC) -shared -Wl,-soname,$(LIBSHARED) -o $(LIBSHARED) $(OBJS_SHARED) $(LIBS) $(PCAPLIB)
 
-_install install: $(LIBSTATIC)
-	../mkinstalldirs $(install_prefix)$(libdir)
-	../mkinstalldirs $(install_prefix)$(includedir)
-	../mkinstalldirs $(install_prefix)$(mandir)/man3
-	$(INSTALL) -c -m 644 libnids.a $(install_prefix)$(libdir)
-	$(INSTALL) -c -m 644 nids.h $(install_prefix)$(includedir)
-	$(INSTALL) -c -m 644 libnids.3 $(install_prefix)$(mandir)/man3
-_installshared installshared: install $(LIBSHARED)
-	$(INSTALL) -c -m 755 $(LIBSHARED) $(install_prefix)$(libdir)
-	ln -s -f $(LIBSHARED) $(install_prefix)$(libdir)/libnids.so
- 
 clean:
 	rm -f *.o *~ $(LIBSTATIC) $(LIBSHARED)
 

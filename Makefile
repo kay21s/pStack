@@ -5,10 +5,9 @@
 
 
 all: static 
-install: _install
-static shared _install _installshared:
+static:
 	cd src ; $(MAKE) $(AM_MAKEFLAGS) $@
-#	cd samples; $(MAKE) $(AM_MAKEFLAGS) $@
+	cd samples; $(MAKE) $(AM_MAKEFLAGS) $@
 clean:
 	cd src ; $(MAKE) $(AM_MAKEFLAGS) $@
 	cd samples; $(MAKE) $(AM_MAKEFLAGS) $@
