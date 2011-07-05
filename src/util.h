@@ -25,6 +25,7 @@ void nids_no_mem(char *);
 char *test_malloc(int);
 void register_callback(struct proc_node **procs, void (*x));
 void unregister_callback(struct proc_node **procs, void (*x));
+u_int compute_time(struct timeval *t1, struct timeval *t2);
 
 static inline int
 before(u_int seq1, u_int seq2)

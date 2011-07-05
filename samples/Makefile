@@ -7,13 +7,13 @@ srcdir		= .
 
 
 CC		= gcc
-CFLAGS		= -g -D_BSD_SOURCE
+CFLAGS		= -g -D_GNU_SOURCE 
 
 PCAP_CFLAGS	= -I/usr/local/include
 PCAPLIB		= -L/usr/local/lib -lpcap
 
 LIBS_CFLAGS	= -I../src $(PCAP_CFLAGS)
-LIBS		= -L../src -lnids $(PCAPLIB) 
+LIBS		= -L../src -lnids -lpthread $(PCAPLIB) 
 
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<

@@ -1,6 +1,7 @@
-
 #ifndef PARALLEL_H
 #define PARALLEL_H
+
+#include <stdint.h>
 
 #define MAX_CPU_CORES 8
 
@@ -21,6 +22,8 @@ typedef struct _tcp_thread_local_p {
 	struct tcp_timeout *nids_tcp_timeouts;
 	void *tcp_stream_table;
 	struct tcp_stream *tcb_array;
+	uint64_t *bitmap;
+	int bitmap_size;
 	int tcp_num;
 	int tcp_stream_table_size;
 	int self_cpu_id;

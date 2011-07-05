@@ -160,8 +160,8 @@ int nids_getfd (void);
 int nids_dispatch (int);
 int nids_next (void);
 void nids_pcap_handler(u_char *, struct pcap_pkthdr *, u_char *);
-struct tcp_stream *nids_find_tcp_stream(struct tuple4 *);
-void nids_free_tcp_stream(struct tcp_stream *);
+//struct tcp_stream *nids_find_tcp_stream(struct tuple4 *);
+//void nids_free_tcp_stream(struct tcp_stream *);
 
 extern struct nids_prm nids_params;
 extern char *nids_warnings[];

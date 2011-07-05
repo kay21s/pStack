@@ -75,14 +75,13 @@ tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
 int
 main ()
 {
-	if (!nids_init ())
-	{
+	if (!nids_init()) {
 		printf("%s\n", nids_errbuf);
 		exit(1);
 	}
 	nids_register_tcp (tcp_callback);
 	nids_run ();
-	printf("TCP time is %llu, number = %d\n", tcp_proc_time/tcp_proc_num, tcp_proc_num);
+	printf("TCP time is %llu, number = %d\n", tcp_proc_time/(tcp_proc_num+1), tcp_proc_num);
 	printf("false positive = %d, conflict into list = %d\n", false_positive, conflict_into_list);
 	printf("Major location statistics: Search : %d/%d, Not found : %d, Add : %d/%d, Delete : %d/%d\n",
 		search_hit_num, search_num, not_found, add_hit_num, add_num, delete_hit_num, delete_num);

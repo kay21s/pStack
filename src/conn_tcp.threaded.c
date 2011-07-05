@@ -6,7 +6,7 @@
 #include <netinet/tcp.h>
 #include "nids.h"
 #include "util.h"
-#include "bitmap.h"
+#include "bitmap.threaded.h"
 #include "conn_tcp.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
@@ -169,7 +169,7 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 }
 
 void
-add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
+add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	struct tcp_stream *tolink;
 	struct tcp_stream *a_tcp;
@@ -184,7 +184,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 	tcp_thread_local_p->tcp_num++;
 
 	// get free index from bitmap
-	index = get_free_index();
+	index = get_free_index(tcp_thread_local_p);
 
 	// let's have the block
 	a_tcp = &(tcp_thread_local_p->tcb_array[index]);
@@ -207,7 +207,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 }
 
 static idx_type 
-delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
+delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	sig_type sign;
 	idx_type tcb_index; 
@@ -297,7 +297,7 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_loc
 	tcp_thread_local_p->tcp_num --;
 
 	tcb_index = delete_from_cache(a_tcp, tcp_thread_local_p);
-	ret_free_index(tcb_index);
+	ret_free_index(tcb_index, tcp_thread_local_p);
 	return;
 }
 
@@ -306,6 +306,8 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	int i;
 	struct tcp_timeout *tmp;
+
+	init_bitmap(tcp_thread_local_p);
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);
@@ -337,7 +339,7 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 // FIXME: Need search the cache table, call corresponding callback function,
 // and release resource in this function
 void
-tcp_exit(TCP_THREAD_LOCAL_P  tcp_thread_local_p)
+tcp_exit(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	if (!tcp_thread_local_p->tcp_stream_table || !tcp_thread_local_p->tcb_array)
 		return;
@@ -349,7 +351,7 @@ tcp_exit(TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 }
 
 void
-process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
+process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	struct ip *this_iphdr = (struct ip *)data;
 	struct tcphdr *this_tcphdr = (struct tcphdr *)(data + 4 * this_iphdr->ip_hl);

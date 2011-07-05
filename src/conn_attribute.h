@@ -94,8 +94,7 @@ typedef struct ll_type {
 #define MAX_STREAM (1 << 20)
 #define CACHE_LINE_SIZE 64
 #define PTR_SIZE 8
-#define ELEM_SIZE 8
-#define SET_ASSOCIATIVE ((CACHE_LINE_SIZE-PTR_SIZE)/ELEM_SIZE)
+#define SET_ASSOCIATIVE 7 // (64-8)/8
 #define SET_SIZE CACHE_LINE_SIZE
 
 #endif

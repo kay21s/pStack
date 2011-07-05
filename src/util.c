@@ -8,9 +8,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#if defined(PARALLEL)
+#include "tcp.threaded.h"
+#else
 #include "tcp.h"
+#endif
 #include "util.h"
 #include "nids.h"
+
+u_int compute_time(struct timeval *t1, struct timeval *t2)
+{
+	u_int total_t;
+
+	if (t1->tv_usec > t2->tv_usec) {
+		t2->tv_usec += 1000000;
+		t2->tv_sec--;
+	}
+
+	total_t = (t2->tv_sec-t1->tv_sec)*1000000 + (t2->tv_usec - t1->tv_usec);
+
+	return total_t;
+}
 
 void
 nids_no_mem(char *func)
