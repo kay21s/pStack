@@ -2,6 +2,7 @@
 #define PARALLEL_H
 
 #include <stdint.h>
+#include <conn_attribute.h>
 
 #define MAX_CPU_CORES 8
 
@@ -23,6 +24,9 @@ typedef struct _tcp_thread_local_p {
 	void *tcp_stream_table;
 	struct tcp_stream *tcb_array;
 	uint64_t *bitmap;
+#if defined(MAJOR_INDEXFREE_TCP)
+	elem_list_type **conflict_list;
+#endif
 	int bitmap_size;
 	int tcp_num;
 	int tcp_stream_table_size;

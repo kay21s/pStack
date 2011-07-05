@@ -28,6 +28,8 @@
 #include "tcp.threaded.h"
 #include "parallel.h"
 #include "conn_tcp.threaded.h"
+#include "conn_indexfree.threaded.h"
+#include "conn_major_indexfree.threaded.h"
 #include <sched.h>
 #include <pthread.h>
 #include <time.h>
