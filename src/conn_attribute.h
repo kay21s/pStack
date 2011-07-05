@@ -20,7 +20,7 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM 1500000
+#define MAX_STREAM 1500000 // Note that this should be larger than CACHE_ELEM_NUM in indexfree version
 #define CACHE_LINE_SIZE 64
 #define PTR_SIZE 8
 #define SET_ASSOCIATIVE 14 // (64-8)/4

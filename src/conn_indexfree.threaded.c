@@ -7,13 +7,14 @@
 #include "nids.h"
 #include "util.h"
 #include "bitmap.threaded.h"
-#include "conn_tcp.threaded.h"
+#include "conn_indexfree.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
 
-#if defined(NEW_TCP)
+#if defined(INDEXFREE_TCP)
 
-#define SET_NUMBER 200000 //0.2 Million buckets = 1.4 Million Elem
+#define SET_NUMBER 100000 //0.1 Million buckets = 1.4 Million Elem
+#define CACHE_ELEM_NUM 1400000 // element number stored in cache
 
 int conflict_into_list = 0;
 int false_positive = 0;
@@ -72,7 +73,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	uint8_t loc = get_major_location(sign);
 	search_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
-		tcb_index = get_cached_index(set_header, loc);
+		tcb_index = calc_index(hash_index, loc);
 		if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
 			*from_client = 1;
 		else
@@ -88,7 +89,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-			tcb_index = get_cached_index(set_header, i);
+			tcb_index = calc_index(hash_index, i);
 			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
@@ -118,17 +119,17 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	return NULL;
 }
 
-static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_p)
+static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	sig_type sign;
 	int hash_index, i;
 	elem_type *ptr;
 	elem_list_type *ptr_l, **head_l;
+	idx_type tcb_index;
 
 	sign = calc_signature(addr.saddr, addr.daddr, addr.source, addr.dest);
 
 	hash_index = mk_hash_index(addr, tcp_thread_local_p);
-	a_tcp->hash_index = hash_index;
 
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_thread_local_p->tcp_stream_table)[hash_index * SET_SIZE]);
@@ -139,9 +140,8 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	if (sig_match_e(0, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = sign;
-		store_cached_index(set_header, loc, index);
 		add_hit_num ++;
-		return;
+		return calc_index(hash_index, loc);
 	}
 #endif
 	for (ptr = set_header, i = 0;
@@ -150,8 +150,7 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 		
 		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-			store_cached_index(set_header, i, index);
-			return;
+			return calc_index(hash_index, i);
 		}
 	}
 
@@ -159,12 +158,18 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
-	store_index_l(index, ptr_l);
-	store_sig_l(sign, ptr_l);
+
+	// get free index from bitmap
+	// Store the TCB in collision linked list in the part above CACHE_ELEM_NUM
+	// in TCB array.
+	tcb_index = get_free_index(tcp_thread_local_p) + CACHE_ELEM_NUM;
+	store_index_l(ptr_l, tcb_index);
+	store_sig_l(ptr_l, sign);
 	head_l = (elem_list_type **)(&(((char *)tcp_thread_local_p->tcp_stream_table)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
 
 	ptr_l->next = *head_l;
 	*head_l = ptr_l;
+	return tcb_index;
 }
 
 void
@@ -182,14 +187,11 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 
 	tcp_thread_local_p->tcp_num++;
 
-	// get free index from bitmap
-	index = get_free_index(tcp_thread_local_p);
+	// add the index into hash cache
+	index = add_into_cache(addr, tcp_thread_local_p);
 
 	// let's have the block
 	a_tcp = &(tcp_thread_local_p->tcb_array[index]);
-
-	// add the index into hash cache
-	add_into_cache(addr, index, a_tcp, tcp_thread_local_p);
 
 	// fill the tcp block
 	memset(a_tcp, 0, sizeof(struct tcp_stream));
@@ -229,9 +231,8 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 	if (sig_match_e(sign, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = 0;
-		tcb_index = get_cached_index(set_header, loc);
 		delete_hit_num ++;
-		return tcb_index;
+		return 0;
 	}
 #endif
 	for (ptr = set_header, i = 0;
@@ -240,8 +241,7 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 		
 		if (sig_match_e(sign, ptr)) {
 			ptr->signature = 0;
-			tcb_index = get_cached_index(set_header, i);
-			return tcb_index;
+			return 0;
 		}
 	}
 
@@ -296,7 +296,9 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_loc
 	tcp_thread_local_p->tcp_num --;
 
 	tcb_index = delete_from_cache(a_tcp, tcp_thread_local_p);
-	ret_free_index(tcb_index, tcp_thread_local_p);
+	if (tcb_index >= CACHE_ELEM_NUM) {
+		ret_free_index(tcb_index - CACHE_ELEM_NUM, tcp_thread_local_p);
+	}
 	return;
 }
 
@@ -350,7 +352,7 @@ tcp_exit(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 }
 
 void
-process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
+process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 {
 	struct ip *this_iphdr = (struct ip *)data;
 	struct tcphdr *this_tcphdr = (struct tcphdr *)(data + 4 * this_iphdr->ip_hl);
@@ -582,4 +584,5 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
 }
+
 #endif

@@ -12,8 +12,8 @@ CC		= gcc
 # CRC_SIGN can only be used when msse4.2 is enabled
 CFLAGS		= -g -lpthread -D_BSD_SOURCE -DLIBNET_VER=-1 -DHAVE_ICMPHDR=1 -DHAVE_TCP_STATES=1 -DHAVE_BSD_UDPHDR=1 
 CFLAGS		+= -D__USE_GNU -D_BSD_SOURCE
-CFLAGS		+= -DNEW_TCP -DSPLIT_TCP_0 -DORIGIN_0 -DINDEXFREE_TCP_0 -DMAJOR_INDEXFREE_TCP_0
-CFLAGS		+= -DMAJOR_LOCATION_0 -DBUILTIN_FUNC -DCOMPACT_TABLE_0 -DCRC_SIGN_0 -msse4.2 -DPRE_MEM_0
+CFLAGS		+= -DNEW_TCP_0 -DSPLIT_TCP_0 -DORIGIN_0 -DINDEXFREE_TCP -DMAJOR_INDEXFREE_TCP_0
+CFLAGS		+= -DMAJOR_LOCATION_0 -DCOMPACT_TABLE_0 -DBUILTIN_FUNC -DCRC_SIGN_0 -msse4.2 -DPRE_MEM_0
 CFLAGS		+= -DPARALLEL
 
 #PCAP_CFLAGS	= -I/usr/local/include
@@ -27,7 +27,8 @@ CFLAGS		+= -DPARALLEL
 		  conn_indexfree.o conn_major_indexfree.o
 OBJS		= checksum.o ip_fragment.threaded.o ip_options.o killtcp.o \
 		  libnids.o scan.o tcp.threaded.o util.o allpromisc.o hash.o \
-		  conn_tcp.threaded.o bitmap.threaded.o conn_attribute.o fifo.o
+		  bitmap.threaded.o conn_attribute.o fifo.o \
+		  conn_tcp.threaded.o conn_indexfree.threaded.o
 
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $<
