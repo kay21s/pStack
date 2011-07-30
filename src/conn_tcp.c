@@ -78,6 +78,27 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	}
 #endif
 
+#if 0
+	printf("Find in the cache, sign = %d\n", sign);
+	printf("Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d ", 
+		this_iphdr->ip_src.s_addr & 0x000000FF,
+		(this_iphdr->ip_src.s_addr & 0x0000FF00)>>8,
+		(this_iphdr->ip_src.s_addr & 0x00FF0000)>>16,
+		(this_iphdr->ip_src.s_addr & 0xFF000000)>>24,
+		this_tcphdr->th_sport,
+		this_iphdr->ip_dst.s_addr & 0x000000FF,
+		(this_iphdr->ip_dst.s_addr & 0x0000FF00)>>8,
+		(this_iphdr->ip_dst.s_addr & 0x00FF0000)>>16,
+		(this_iphdr->ip_dst.s_addr & 0xFF000000)>>24,
+		this_tcphdr->th_dport
+		);
+
+	int sign1 = calc_signature(this_iphdr->ip_src.s_addr,
+		this_iphdr->ip_dst.s_addr,
+		this_tcphdr->th_sport,
+		this_tcphdr->th_dport);
+	printf("Sign = %d\n", sign1);
+#endif
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
@@ -413,8 +434,9 @@ process_tcp(u_char * data, int skblen)
 	if (!(a_tcp = find_stream(this_tcphdr, this_iphdr, &from_client))) {
 		if ((this_tcphdr->th_flags & TH_SYN) &&
 				!(this_tcphdr->th_flags & TH_ACK) &&
-				!(this_tcphdr->th_flags & TH_RST))
+				!(this_tcphdr->th_flags & TH_RST)) {
 			add_new_tcp(this_tcphdr, this_iphdr);
+		}
 		return;
 	}
 
@@ -426,7 +448,47 @@ process_tcp(u_char * data, int skblen)
 		a_tcp->addr.source == this_tcphdr->th_dport &&
 		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
 		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
+
 		false_positive ++;
+#if 0
+		printf("the Founded one in the table: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d ", 
+			a_tcp->addr.saddr & 0x000000FF,
+			(a_tcp->addr.saddr & 0x0000FF00)>>8,
+			(a_tcp->addr.saddr & 0x00FF0000)>>16,
+			(a_tcp->addr.saddr & 0xFF000000)>>24,
+			a_tcp->addr.source,
+			a_tcp->addr.daddr & 0x000000FF,
+			(a_tcp->addr.daddr & 0x0000FF00)>>8,
+			(a_tcp->addr.daddr & 0x00FF0000)>>16,
+			(a_tcp->addr.daddr & 0xFF000000)>>24,
+			a_tcp->addr.dest
+			);
+		int sign2 = calc_signature(
+			a_tcp->addr.saddr,
+			a_tcp->addr.daddr,
+			a_tcp->addr.source,
+			a_tcp->addr.dest);
+		printf("Sign = %d\n", sign2);
+		printf("Current one: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d ", 
+			this_iphdr->ip_src.s_addr & 0x000000FF,
+			(this_iphdr->ip_src.s_addr & 0x0000FF00)>>8,
+			(this_iphdr->ip_src.s_addr & 0x00FF0000)>>16,
+			(this_iphdr->ip_src.s_addr & 0xFF000000)>>24,
+			this_tcphdr->th_sport,
+			this_iphdr->ip_dst.s_addr & 0x000000FF,
+			(this_iphdr->ip_dst.s_addr & 0x0000FF00)>>8,
+			(this_iphdr->ip_dst.s_addr & 0x00FF0000)>>16,
+			(this_iphdr->ip_dst.s_addr & 0xFF000000)>>24,
+			this_tcphdr->th_dport
+			);
+
+		int sign1 = calc_signature(
+			this_iphdr->ip_src.s_addr,
+			this_iphdr->ip_dst.s_addr,
+			this_tcphdr->th_sport,
+			this_tcphdr->th_dport);
+		printf("Sign = %d\n", sign1);
+#endif
 	}
 
 

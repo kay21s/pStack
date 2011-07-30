@@ -7,14 +7,16 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 {
 	uint32_t port = sport ^ dport;
 #if defined(CRC_SIGN)
-	unsigned int crc1 = 0;
+	unsigned int crc1 = 0, crc2 = 0;
+
 	crc1 = _mm_crc32_u32(crc1, sip);
 	crc1 = _mm_crc32_u32(crc1, dip);
 	crc1 = _mm_crc32_u32(crc1, port);
-	unsigned int crc2 = 0;
+
 	crc2 = _mm_crc32_u32(crc2, dip);
 	crc2 = _mm_crc32_u32(crc2, sip);
 	crc2 = _mm_crc32_u32(crc2, port);
+
 	return (sig_type)(crc1 ^ crc2);
 #else
 	return sip ^ dip ^ port;

@@ -51,6 +51,7 @@
 extern FIFO_CTRL fifo_g[];
 extern FIFO_BUFFER buffer_g[];
 
+
 #define LOAD_BALANCE_ARRAY_SIZE 32
 
 static _IP_THREAD_LOCAL_P ip_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(16)));
@@ -58,7 +59,7 @@ static pthread_t  ip_thread_ctrl[MAX_CPU_CORES] __attribute__((aligned(16)));
 static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(16)));
 
 int cpu_id[8] = {2,4,6,1,3,5,7};
-int number_of_cpus_used = 2;
+int number_of_cpus_used;
 int cpus_time_used[MAX_CPU_CORES];
 
 int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
@@ -73,6 +74,8 @@ int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
 };
 
 #endif
+
+extern char trace_file[128];
 
 #ifdef __linux__
 extern int set_all_promisc();
@@ -117,8 +120,7 @@ struct nids_prm nids_params = {
     1040,			/* n_tcp_streams */
     256,			/* n_hosts */
     NULL,			/* device */
-//    "/home/kay/trace/merged.pcap",			/* filename */
-    "a.pcap",
+    NULL,			/* filename */
     168,			/* sk_buff_size */
     -1,				/* dev_addon */
     nids_syslog,		/* syslog() */
@@ -731,6 +733,7 @@ static int open_live()
 int nids_init()
 {
 	/* free resources that previous usages might have allocated */
+	nids_params.filename = trace_file;
 	nids_exit();
 
 	if (nids_params.pcap_desc)

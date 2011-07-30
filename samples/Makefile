@@ -7,7 +7,7 @@ srcdir		= .
 
 
 CC		= gcc
-CFLAGS		= -g -D_GNU_SOURCE 
+CFLAGS		= -g -D_GNU_SOURCE -DMAX_CPU_CORES=8 
 
 PCAP_CFLAGS	= -I/usr/local/include
 PCAPLIB		= -L/usr/local/lib -lpcap

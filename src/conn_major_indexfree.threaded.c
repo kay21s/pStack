@@ -520,7 +520,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 	//  if (!(this_tcphdr->th_flags & TH_ACK))
 	//    detect_scan(this_iphdr);
 	if (!nids_params.n_tcp_streams) return;
-
+	
 #if 0
 	{
 		printf("IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
