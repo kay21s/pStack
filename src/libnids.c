@@ -250,6 +250,7 @@ static void call_ip_frag_procs(void *data, bpf_u_int32 caplen)
 	memcpy(data_buf, data, caplen);
 
 	{
+		// Send packets to consumer through FIFO
 		FIFO_ELEM elem;
 		FIFO_ELEM_DATA(&elem) = data_buf;
 		FIFO_ELEM_SIZE(&elem) = caplen; 
@@ -732,8 +733,11 @@ static int open_live()
 
 int nids_init()
 {
-	/* free resources that previous usages might have allocated */
+#if 0
+	freopen("tuple.record", "w", stdout);
+#endif
 	nids_params.filename = trace_file;
+	/* free resources that previous usages might have allocated */
 	nids_exit();
 
 	if (nids_params.pcap_desc)
@@ -873,6 +877,7 @@ int nids_run()
 
 #if defined(PARALLEL)
 	int i, j, res;
+	// Send padding packets to terminate consumer
 	for (i = 0; i < number_of_cpus_used - 1; i ++) {
 		int new_id = cpu_id[i];
 

@@ -8,10 +8,11 @@
 #include "util.h"
 #include "bitmap.h"
 #include "conn_tcp.h"
+#include  <nmmintrin.h>
 
 #if defined(NEW_TCP)
 
-#define SET_NUMBER 200000 //0.2 Million buckets = 1.4 Million Elem
+#define SET_NUMBER 207269 //0.2 Million buckets = 1.4 Million Elem
 
 int conflict_into_list = 0;
 int false_positive = 0;
@@ -26,6 +27,8 @@ extern struct proc_node *tcp_procs;
 static void *tcp_stream_table;
 static struct tcp_stream *tcb_array;
 extern int tcp_num;
+extern int max_tcp_num;
+extern int total_tcp_num;
 extern int tcp_stream_table_size;
 extern int get_ts(struct tcphdr *, unsigned int *);
 extern int get_wscale(struct tcphdr *, unsigned int *);
@@ -37,6 +40,88 @@ extern void tcp_queue(struct tcp_stream *, struct tcphdr *,
 	struct half_stream *, struct half_stream *,
 	char *, int, int);
 extern void prune_queue(struct half_stream *, struct tcphdr *);
+
+
+int is_false_positive(struct tuple4 addr, idx_type tcb_index)
+{
+	struct tcp_stream *tcb_p = &(tcb_array[tcb_index]);
+	if (!((addr.source == tcb_p->addr.source &&
+		addr.dest == tcb_p->addr.dest &&
+		addr.saddr == tcb_p->addr.saddr &&
+		addr.daddr == tcb_p->addr.daddr ) ||
+		(addr.dest == tcb_p->addr.source &&
+		addr.source == tcb_p->addr.dest &&
+		addr.daddr == tcb_p->addr.saddr &&
+		addr.saddr == tcb_p->addr.daddr ))) {
+
+		// Yes, it is false positive
+		false_positive ++;
+
+#if 1		
+		int sign2 = calc_signature(
+				tcb_p->addr.saddr,
+				tcb_p->addr.daddr,
+				tcb_p->addr.source,
+				tcb_p->addr.dest);
+		printf("||the Founded one in the table: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d , sign = %x\n", 
+				tcb_p->addr.saddr & 0x000000FF,
+				(tcb_p->addr.saddr & 0x0000FF00)>>8,
+				(tcb_p->addr.saddr & 0x00FF0000)>>16,
+				(tcb_p->addr.saddr & 0xFF000000)>>24,
+				tcb_p->addr.source,
+				tcb_p->addr.daddr & 0x000000FF,
+				(tcb_p->addr.daddr & 0x0000FF00)>>8,
+				(tcb_p->addr.daddr & 0x00FF0000)>>16,
+				(tcb_p->addr.daddr & 0xFF000000)>>24,
+				tcb_p->addr.dest,
+				sign2
+		      );
+		int crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.source ^ tcb_p->addr.dest);
+		printf("(%x", crc1);
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.source ^ tcb_p->addr.dest);
+		printf("--  %x)\n", crc1);
+		sign2 = calc_signature(
+				addr.saddr,
+				addr.daddr,
+				addr.source,
+				addr.dest);
+		printf("Current one: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d , sign = %x||\n", 
+				addr.saddr & 0x000000FF,
+				(addr.saddr & 0x0000FF00)>>8,
+				(addr.saddr & 0x00FF0000)>>16,
+				(addr.saddr & 0xFF000000)>>24,
+				addr.source,
+				addr.daddr & 0x000000FF,
+				(addr.daddr & 0x0000FF00)>>8,
+				(addr.daddr & 0x00FF0000)>>16,
+				(addr.daddr & 0xFF000000)>>24,
+				addr.dest,
+				sign2
+		      );
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+		printf("(%x", crc1);
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+		printf("--  %x)\n", crc1);
+#endif
+
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 
 struct tcp_stream *
 find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
@@ -68,13 +153,17 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	search_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = get_cached_index(set_header, loc);
-		if (addr.source == tcb_array[tcb_index].addr.source)
-			*from_client = 1;
-		else
-			*from_client = 0;
 
-		search_hit_num ++;
-		return &tcb_array[tcb_index];
+		// False positive test
+		if (!is_false_positive(addr, tcb_index)) {
+			if (addr.source == tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			search_hit_num ++;
+			return &tcb_array[tcb_index];
+		}
 	}
 #endif
 
@@ -105,6 +194,10 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 		
 		if (sig_match_e(sign, ptr)) {
 			tcb_index = get_cached_index(set_header, i);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index)) continue;
+
 			if (addr.source == tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
@@ -120,6 +213,10 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 		ptr_l = ptr_l->next) {
 		
 		if (sig_match_l(sign, ptr_l)) {
+
+			// False positive test
+			if (is_false_positive(addr, index_l(ptr_l))) continue;
+
 			if (addr.source == tcb_array[index_l(ptr_l)].addr.source)
 				*from_client = 1;
 			else
@@ -175,6 +272,7 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+	//printf("CONFLICT %d, %d!\n", conflict_into_list, sizeof(elem_list_type));
 	store_index_l(index, ptr_l);
 	store_sig_l(sign, ptr_l);
 	head_l = (elem_list_type **)(&(((char *)tcp_stream_table)[hash_index * SET_SIZE]) + SET_SIZE - PTR_SIZE);
@@ -196,7 +294,13 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr)
 	addr.saddr = this_iphdr->ip_src.s_addr;
 	addr.daddr = this_iphdr->ip_dst.s_addr;
 
-	tcp_num++;
+#if 0
+	printf("%u, %u, %u, %u\n", addr.saddr, addr.daddr, addr.source, addr.dest);
+#endif
+	tcp_num ++;
+	total_tcp_num ++;
+	if (max_tcp_num < tcp_num)
+		max_tcp_num = tcp_num;
 
 	// get free index from bitmap
 	index = get_free_index();
@@ -243,11 +347,13 @@ delete_from_cache(struct tcp_stream *a_tcp)
 	uint8_t loc = get_major_location(sign);
 	delete_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
-		ptr = set_header + loc;
-		ptr->signature = 0;
 		tcb_index = get_cached_index(set_header, loc);
-		delete_hit_num ++;
-		return tcb_index;
+		if (!is_false_positive(addr, tcb_index)) {
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			delete_hit_num ++;
+			return tcb_index;
+		}
 	}
 #endif
 	for (ptr = set_header, i = 0;
@@ -255,8 +361,12 @@ delete_from_cache(struct tcp_stream *a_tcp)
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-			ptr->signature = 0;
 			tcb_index = get_cached_index(set_header, i);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index)) continue;
+
+			ptr->signature = 0;
 			return tcb_index;
 		}
 	}
@@ -268,6 +378,9 @@ delete_from_cache(struct tcp_stream *a_tcp)
 		
 		if (sig_match_l(sign, ptr_l)) {
 			tcb_index = index_l(ptr_l);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index)) continue;
 
 			if (pre_l == NULL) {
 				// The first match, update head
@@ -378,6 +491,12 @@ process_tcp(u_char * data, int skblen)
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
 
+	//putchar('c');
+	static int a=0;
+	a++;
+	if (a % 10000 == 0)
+	printf(" %d \n", a);
+
 	//  ugly_iphdr = this_iphdr;
 	iplen = ntohs(this_iphdr->ip_len);
 	if ((unsigned)iplen < 4 * this_iphdr->ip_hl + sizeof(struct tcphdr)) {
@@ -440,6 +559,17 @@ process_tcp(u_char * data, int skblen)
 		return;
 	}
 
+#if 0
+	// Test for bad trace, two syn packets of a same connection arrived
+	if ((this_tcphdr->th_flags & TH_SYN) && !(this_tcphdr->th_flags & TH_ACK))
+	{
+		printf("IN PROCESS_TCP A tcp!, saddr = %u, daddr = %u", this_iphdr->ip_src.s_addr, this_iphdr->ip_dst.s_addr);
+		printf("sport = %hu, dport = %hu\n", this_tcphdr->th_sport, this_tcphdr->th_dport);
+	}
+#endif
+
+#if 0
+	// Test False positive, Not necessary
 	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
 		a_tcp->addr.dest == this_tcphdr->th_dport &&
 		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
@@ -449,48 +579,10 @@ process_tcp(u_char * data, int skblen)
 		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
 		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
 
-		false_positive ++;
-#if 0
-		printf("the Founded one in the table: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d ", 
-			a_tcp->addr.saddr & 0x000000FF,
-			(a_tcp->addr.saddr & 0x0000FF00)>>8,
-			(a_tcp->addr.saddr & 0x00FF0000)>>16,
-			(a_tcp->addr.saddr & 0xFF000000)>>24,
-			a_tcp->addr.source,
-			a_tcp->addr.daddr & 0x000000FF,
-			(a_tcp->addr.daddr & 0x0000FF00)>>8,
-			(a_tcp->addr.daddr & 0x00FF0000)>>16,
-			(a_tcp->addr.daddr & 0xFF000000)>>24,
-			a_tcp->addr.dest
-			);
-		int sign2 = calc_signature(
-			a_tcp->addr.saddr,
-			a_tcp->addr.daddr,
-			a_tcp->addr.source,
-			a_tcp->addr.dest);
-		printf("Sign = %d\n", sign2);
-		printf("Current one: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d ", 
-			this_iphdr->ip_src.s_addr & 0x000000FF,
-			(this_iphdr->ip_src.s_addr & 0x0000FF00)>>8,
-			(this_iphdr->ip_src.s_addr & 0x00FF0000)>>16,
-			(this_iphdr->ip_src.s_addr & 0xFF000000)>>24,
-			this_tcphdr->th_sport,
-			this_iphdr->ip_dst.s_addr & 0x000000FF,
-			(this_iphdr->ip_dst.s_addr & 0x0000FF00)>>8,
-			(this_iphdr->ip_dst.s_addr & 0x00FF0000)>>16,
-			(this_iphdr->ip_dst.s_addr & 0xFF000000)>>24,
-			this_tcphdr->th_dport
-			);
-
-		int sign1 = calc_signature(
-			this_iphdr->ip_src.s_addr,
-			this_iphdr->ip_dst.s_addr,
-			this_tcphdr->th_sport,
-			this_tcphdr->th_dport);
-		printf("Sign = %d\n", sign1);
-#endif
+		//false_positive ++;
+		printf("What the fuck, false positive????\n");
 	}
-
+#endif
 
 	if (from_client) {
 		snd = &a_tcp->client;

@@ -36,12 +36,15 @@ extern int not_found;
 
 extern int number_of_cpus_used;
 
+extern int max_tcp_num;
+extern int total_tcp_num;
+
 void
 tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
 {
 	int dest;
 
-/*
+#if 0
 	printf("A tcp!, saddr = %d.%d.%d.%d,", 
 		a_tcp->addr.saddr & 0x000000ff,
 		(a_tcp->addr.saddr & 0x0000ff00) >> 8,
@@ -55,7 +58,7 @@ tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
 		(a_tcp->addr.daddr & 0xff000000) >> 24
 		);
 	printf("sport = %d, dport = %d\n", a_tcp->addr.source, a_tcp->addr.dest);
-*/
+#endif
 
 	if (a_tcp->nids_state == NIDS_JUST_EST) {
 		a_tcp->client.collect ++;
@@ -103,6 +106,7 @@ main (int argc, char *argv[])
 	
 #if defined(PARALLEL)
 	number_of_cpus_used = cpu_num;
+	printf("++++++++++++++++++++++++ %d ==========================\n", number_of_cpus_used);
 #endif
 	if (!nids_init()) {
 		printf("%s\n", nids_errbuf);
@@ -110,10 +114,12 @@ main (int argc, char *argv[])
 	}
 	nids_register_tcp (tcp_callback);
 	nids_run ();
+#if 0
 	printf("TCP time is %llu, number = %d\n", tcp_proc_time/(tcp_proc_num+1), tcp_proc_num);
 	printf("false positive = %d, conflict into list = %d\n", false_positive, conflict_into_list);
 	printf("Major location statistics: Search : %d/%d, Not found : %d, Add : %d/%d, Delete : %d/%d\n",
 			search_hit_num, search_num, not_found, add_hit_num, add_num, delete_hit_num, delete_num);
-
+//	printf("Total TCP number is %d, Max TCP number is %d\n", total_tcp_num, max_tcp_num);
+#endif
 	return 0;
 }

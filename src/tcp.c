@@ -58,6 +58,8 @@ int false_positive = 0;
 #endif
 
 int tcp_num = 0;
+int max_tcp_num = 0;
+int total_tcp_num = 0;
 int tcp_stream_table_size;
 
 static struct ip *ugly_iphdr;
@@ -271,6 +273,7 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
   addr.daddr = this_iphdr->ip_dst.s_addr;
   hash_index = mk_hash_index(addr);
   
+#if 0
   if (tcp_num > max_stream) {
     struct lurker_node *i;
     int orig_client_state=tcp_oldest->client.state;
@@ -281,10 +284,26 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
     if (orig_client_state!=TCP_SYN_SENT)
       nids_params.syslog(NIDS_WARN_TCP, NIDS_WARN_TCP_TOOMUCH, ugly_iphdr, this_tcphdr);
   }
+#endif
   a_tcp = free_streams;
   if (!a_tcp) {
-    fprintf(stderr, "gdb me ...\n");
-    pause();
+	  streams_pool = (struct tcp_stream *) malloc((max_stream + 1) * sizeof(struct tcp_stream));
+	  if (!streams_pool) {
+		  nids_params.no_mem("tcp_init");
+		  return -1;
+	  }
+	  int i;
+	  for (i = 0; i < max_stream; i++)
+		  streams_pool[i].next_free = &(streams_pool[i + 1]);
+	  streams_pool[max_stream].next_free = 0;
+	  free_streams = streams_pool;
+	  a_tcp = free_streams;
+	  //fprintf(stderr, "gdb me ...\n");
+	  //pause();
+  }
+  if (!a_tcp) {
+	  fprintf(stderr, "gdb me ...\n");
+	  pause();
   }
   free_streams = a_tcp->next_free;
   
@@ -319,6 +338,7 @@ static void
 add2buf(struct half_stream * rcv, char *data, int datalen)
 {
 	int toalloc;
+	static int a=0;
 
 	if (datalen + rcv->count - rcv->offset > rcv->bufsize) {
 		if (!rcv->data) {
@@ -327,6 +347,7 @@ add2buf(struct half_stream * rcv, char *data, int datalen)
 			else
 				toalloc = datalen * 2;
 			rcv->data = malloc(toalloc);
+			printf("Malloc %d\n", a++);
 			rcv->bufsize = toalloc;
 		}
 		else {
@@ -512,10 +533,20 @@ tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
 		if (after(this_seq + datalen + (this_tcphdr->th_flags & TH_FIN), EXP_SEQ)) {
 			/* the packet straddles our window end */
 			get_ts(this_tcphdr, &snd->curr_ts);
+
+			// TCP algorithm test, do not copy packet data for upper layer use -- Kay
+			// ======================================================================
+			struct lurker_node *i = a_tcp->listeners;
+			(i->item) (a_tcp, &i->data);
+			rcv->count_new = datalen;
+			rcv->count += datalen;
+			// ======================================================================
+			/*
 			add_from_skb(a_tcp, rcv, snd, (u_char *)data, datalen, this_seq,
 					(this_tcphdr->th_flags & TH_FIN),
 					(this_tcphdr->th_flags & TH_URG),
 					ntohs(this_tcphdr->th_urp) + this_seq - 1);
+			*/
 			/*
 			 * Do we have any old packets to ack that the above
 			 * made visible? (Go forward from skb)
@@ -640,6 +671,19 @@ check_flags(struct ip * iph, struct tcphdr * th)
 
 #if defined(ORIGIN_TCP)
 struct tcp_stream *
+nids_find_tcp_stream(struct tuple4 *addr)
+{
+  int hash_index;
+  struct tcp_stream *a_tcp;
+
+  hash_index = mk_hash_index(*addr);
+  for (a_tcp = tcp_stream_table[hash_index];
+       a_tcp && memcmp(&a_tcp->addr, addr, sizeof (struct tuple4));
+       a_tcp = a_tcp->next_node);
+  return a_tcp ? a_tcp : 0;
+}
+
+struct tcp_stream *
 find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
 	    int *from_client)
 {
@@ -666,20 +710,6 @@ find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
   }
   return 0;
 }
-
-struct tcp_stream *
-nids_find_tcp_stream(struct tuple4 *addr)
-{
-  int hash_index;
-  struct tcp_stream *a_tcp;
-
-  hash_index = mk_hash_index(*addr);
-  for (a_tcp = tcp_stream_table[hash_index];
-       a_tcp && memcmp(&a_tcp->addr, addr, sizeof (struct tuple4));
-       a_tcp = a_tcp->next_node);
-  return a_tcp ? a_tcp : 0;
-}
-
 
 void tcp_exit(void)
 {
@@ -722,6 +752,11 @@ process_tcp(u_char * data, int skblen)
   struct tcp_stream *a_tcp;
   struct half_stream *snd, *rcv;
 
+	static int a=0;
+	a++;
+	if (a % 50000 == 0)
+	printf(" %d \n", a);
+
   ugly_iphdr = this_iphdr;
   iplen = ntohs(this_iphdr->ip_len);
   if ((unsigned)iplen < 4 * this_iphdr->ip_hl + sizeof(struct tcphdr)) {
@@ -747,7 +782,7 @@ process_tcp(u_char * data, int skblen)
 //    detect_scan(this_iphdr);
   if (!nids_params.n_tcp_streams) return;
 
-#if 1
+#if 0
   {
 	printf("IN PROCESS_TCP A tcp!, saddr = %d.%d.%d.%d,", 
 		this_iphdr->ip_src.s_addr & 0x000000ff,
@@ -979,7 +1014,7 @@ tcp_init(int size)
     nids_params.no_mem("tcp_init");
     return -1;
   }
-  max_stream = 3 * tcp_stream_table_size / 4;
+  max_stream = 3 * tcp_stream_table_size;
   streams_pool = (struct tcp_stream *) malloc((max_stream + 1) * sizeof(struct tcp_stream));
   if (!streams_pool) {
     nids_params.no_mem("tcp_init");

@@ -100,7 +100,7 @@ struct tcp_stream
   struct half_stream server;
   int hash_index;
   int read;
-#if defined(ORIGIN)
+#if defined(ORIGIN_TCP)
   struct tcp_stream *next_free;
   struct tcp_stream *next_node;
   struct tcp_stream *prev_node;

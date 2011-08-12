@@ -1,13 +1,11 @@
 #include "conn_attribute.h"
-#if defined(CRC_SIGN)
 #include  <nmmintrin.h>
-#endif
 
 inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uint16_t sport, const uint16_t dport)
 {
 	uint32_t port = sport ^ dport;
 #if defined(CRC_SIGN)
-	unsigned int crc1 = 0, crc2 = 0;
+	unsigned int crc1 = 0, crc2 = 0, res;
 
 	crc1 = _mm_crc32_u32(crc1, sip);
 	crc1 = _mm_crc32_u32(crc1, dip);
@@ -17,7 +15,44 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 	crc2 = _mm_crc32_u32(crc2, sip);
 	crc2 = _mm_crc32_u32(crc2, port);
 
-	return (sig_type)(crc1 ^ crc2);
+	res = crc1 ^ crc2;
+	// Since we set the signature of an empty slot to be zero,
+	// if the calculated signature turned to be zero, there will be a false positive,
+	// We make it a arbitrary number rather than zero.
+	if (res == 0) res = (sip + dip) ^ port;
+
+	return (sig_type)res;
+#elif defined(CRC_SIGN1)
+	unsigned int crc1 = 0, res;
+	crc1 = _mm_crc32_u32(crc1, sip ^ dip);
+	crc1 = _mm_crc32_u32(crc1, port);
+
+	res = crc1;
+	if (res == 0) res = (sip + dip) ^ port;
+
+	return (sig_type)res;
+
+#elif defined(CRC_SIGN2)
+	unsigned int crc1 = 0, crc2 = 0, res;
+
+	crc1 = _mm_crc32_u32(crc1, sip);
+	crc1 = _mm_crc32_u32(crc1, dip);
+	crc1 = _mm_crc32_u32(crc1, sport);
+	crc1 = _mm_crc32_u32(crc1, dport);
+
+	crc2 = _mm_crc32_u32(crc2, dip);
+	crc2 = _mm_crc32_u32(crc2, sip);
+	crc2 = _mm_crc32_u32(crc2, dport);
+	crc2 = _mm_crc32_u32(crc2, sport);
+
+	res = (crc1 & 0xFFFF0000) | (crc2 >> 16);
+	// Since we set the signature of an empty slot to be zero,
+	// if the calculated signature turned to be zero, there will be a false positive,
+	// We make it a arbitrary number rather than zero.
+	if (res == 0) res = (sip + dip) ^ port;
+
+	return (sig_type)res;
+
 #else
 	return sip ^ dip ^ port;
 #endif
@@ -25,6 +60,13 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 
 inline int sig_match_e(const sig_type sign, const elem_type *ptr)
 {
+#if defined(CRC_SIGN2)
+	sig_type rev_sign;
+	if(sign == ptr->signature) return 1;
+	rev_sign = ((sign & 0xFFFF)<<16) | ((sign & 0xFFFF0000)>>16);
+	if(rev_sign == ptr->signature) return 1;
+	return 0;
+#endif
 	return (sign == ptr->signature)? 1 : 0;
 }
 

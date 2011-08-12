@@ -10,6 +10,7 @@
 #include "conn_tcp.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
+#include  <nmmintrin.h>
 
 #if defined(NEW_TCP)
 
@@ -35,6 +36,86 @@ extern void tcp_queue(struct tcp_stream *, struct tcphdr *,
 	struct half_stream *, struct half_stream *,
 	char *, int, int, TCP_THREAD_LOCAL_P);
 extern void prune_queue(struct half_stream *, struct tcphdr *);
+
+int is_false_positive(struct tuple4 addr, idx_type tcb_index, TCP_THREAD_LOCAL_P tcp_thread_local_p)
+{
+	struct tcp_stream *tcb_p = &(tcp_thread_local_p->tcb_array[tcb_index]);
+	if (!((addr.source == tcb_p->addr.source &&
+		addr.dest == tcb_p->addr.dest &&
+		addr.saddr == tcb_p->addr.saddr &&
+		addr.daddr == tcb_p->addr.daddr ) ||
+		(addr.dest == tcb_p->addr.source &&
+		addr.source == tcb_p->addr.dest &&
+		addr.daddr == tcb_p->addr.saddr &&
+		addr.saddr == tcb_p->addr.daddr ))) {
+
+		// Yes, it is false positive
+		false_positive ++;
+
+#if 1		
+		int sign2 = calc_signature(
+				tcb_p->addr.saddr,
+				tcb_p->addr.daddr,
+				tcb_p->addr.source,
+				tcb_p->addr.dest);
+		printf("||the Founded one in the table: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d , sign = %x\n", 
+				tcb_p->addr.saddr & 0x000000FF,
+				(tcb_p->addr.saddr & 0x0000FF00)>>8,
+				(tcb_p->addr.saddr & 0x00FF0000)>>16,
+				(tcb_p->addr.saddr & 0xFF000000)>>24,
+				tcb_p->addr.source,
+				tcb_p->addr.daddr & 0x000000FF,
+				(tcb_p->addr.daddr & 0x0000FF00)>>8,
+				(tcb_p->addr.daddr & 0x00FF0000)>>16,
+				(tcb_p->addr.daddr & 0xFF000000)>>24,
+				tcb_p->addr.dest,
+				sign2
+		      );
+		int crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.source ^ tcb_p->addr.dest);
+		printf("(%x", crc1);
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, tcb_p->addr.source ^ tcb_p->addr.dest);
+		printf("--  %x)\n", crc1);
+		sign2 = calc_signature(
+				addr.saddr,
+				addr.daddr,
+				addr.source,
+				addr.dest);
+		printf("Current one: Sip: %d.%d.%d.%d, Sport:%d, Dip : %d.%d.%d.%d, Dport:%d , sign = %x||\n", 
+				addr.saddr & 0x000000FF,
+				(addr.saddr & 0x0000FF00)>>8,
+				(addr.saddr & 0x00FF0000)>>16,
+				(addr.saddr & 0xFF000000)>>24,
+				addr.source,
+				addr.daddr & 0x000000FF,
+				(addr.daddr & 0x0000FF00)>>8,
+				(addr.daddr & 0x00FF0000)>>16,
+				(addr.daddr & 0xFF000000)>>24,
+				addr.dest,
+				sign2
+		      );
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+		printf("(%x", crc1);
+		crc1 = 0;
+		crc1 = _mm_crc32_u32(crc1, addr.daddr);
+		crc1 = _mm_crc32_u32(crc1, addr.saddr);
+		crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+		printf("--  %x)\n", crc1);
+#endif
+
+		return 1;
+	} else {
+		return 0;
+	}
+}
 
 u_int
 mk_hash_index(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
@@ -73,13 +154,17 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	search_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = get_cached_index(set_header, loc);
-		if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
-			*from_client = 1;
-		else
-			*from_client = 0;
 
-		search_hit_num ++;
-		return &tcp_thread_local_p->tcb_array[tcb_index];
+		// False positive test
+		if (!is_false_positive(addr, tcb_index, tcp_thread_local_p)) {
+			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			search_hit_num ++;
+			return &tcp_thread_local_p->tcb_array[tcb_index];
+		}
 	}
 #endif
 
@@ -89,6 +174,10 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 		
 		if (sig_match_e(sign, ptr)) {
 			tcb_index = get_cached_index(set_header, i);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
 			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
 				*from_client = 1;
 			else
@@ -104,6 +193,10 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 		ptr_l = ptr_l->next) {
 		
 		if (sig_match_l(sign, ptr_l)) {
+
+			// False positive test
+			if (is_false_positive(addr, index_l(ptr_l), tcp_thread_local_p)) continue;
+
 			if (addr.source == tcp_thread_local_p->tcb_array[index_l(ptr_l)].addr.source)
 				*from_client = 1;
 			else
@@ -227,11 +320,13 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 	uint8_t loc = get_major_location(sign);
 	delete_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
-		ptr = set_header + loc;
-		ptr->signature = 0;
 		tcb_index = get_cached_index(set_header, loc);
-		delete_hit_num ++;
-		return tcb_index;
+		if (!is_false_positive(addr, tcb_index, tcp_thread_local_p)) {
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			delete_hit_num ++;
+			return tcb_index;
+		}
 	}
 #endif
 	for (ptr = set_header, i = 0;
@@ -239,8 +334,12 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 		i ++, ptr ++) {
 		
 		if (sig_match_e(sign, ptr)) {
-			ptr->signature = 0;
 			tcb_index = get_cached_index(set_header, i);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			ptr->signature = 0;
 			return tcb_index;
 		}
 	}
@@ -252,6 +351,9 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 		
 		if (sig_match_l(sign, ptr_l)) {
 			tcb_index = index_l(ptr_l);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
 
 			if (pre_l == NULL) {
 				// The first match, update head
@@ -360,6 +462,10 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
 
+	static int a =0;
+	a ++;
+	if (a % 50000 == 0)
+		printf(" %d \n", a);
 	//  ugly_iphdr = this_iphdr;
 	iplen = ntohs(this_iphdr->ip_len);
 	if ((unsigned)iplen < 4 * this_iphdr->ip_hl + sizeof(struct tcphdr)) {

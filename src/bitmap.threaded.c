@@ -11,9 +11,9 @@
 
 extern int number_of_cpus_used;
 
-inline void set(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] |= (1 << (i & MASK));}
-inline void clr(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] &= ~(1 << (i & MASK));}
-inline int test(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { return (tcp_thread_local_p->bitmap)[i>>SHIFT] & (1 << (i & MASK));}
+inline void set(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] |= ((uint64_t)1 << (i & MASK));}
+inline void clr(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] &= ~((uint64_t)1 << (i & MASK));}
+inline int test(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { return (tcp_thread_local_p->bitmap)[i>>SHIFT] & ((uint64_t)1 << (i & MASK));}
 
 void init_bitmap(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {

@@ -11,9 +11,11 @@
 
 uint64_t bitmap[BITMAP_SIZE];
 
-inline void set(int i) { bitmap[i>>SHIFT] |= (1 << (i & MASK));}
-inline void clr(int i) { bitmap[i>>SHIFT] &= ~(1 << (i & MASK));}
-inline int test(int i) { return bitmap[i>>SHIFT] & (1 << (i & MASK));}
+extern int tcp_num;
+
+inline void set(int i) { uint64_t a = 1; bitmap[i>>SHIFT] |= (a << (i & MASK));}
+inline void clr(int i) { uint64_t a = 1; bitmap[i>>SHIFT] &= ~(a << (i & MASK));}
+inline int test(int i) { uint64_t a = 1; return bitmap[i>>SHIFT] & (a << (i & MASK));}
 
 void init_bitmap(void)
 {
@@ -46,6 +48,7 @@ idx_type find_free_index()
 	}
 
 	printf("Run out of bits????? Too many connections?????\n");
+	printf("Current TCP number : %d\n", tcp_num);
 	exit(0);
 	return -1;
 }
