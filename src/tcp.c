@@ -54,12 +54,11 @@ static struct tcp_stream *free_streams;
 static struct tcp_stream *streams_pool;
 static int max_stream;
 static struct tcp_stream *tcp_latest = 0, *tcp_oldest = 0;
-int false_positive = 0;
 #endif
 
-int tcp_num = 0;
-int max_tcp_num = 0;
-int total_tcp_num = 0;
+extern int tcp_num;
+extern int max_tcp_num;
+extern int total_tcp_num;
 int tcp_stream_table_size;
 
 static struct ip *ugly_iphdr;
@@ -466,6 +465,8 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
 		rcv->urg_ptr = urg_ptr;
 		rcv->urg_seen = 1;
 	}
+
+#if !defined(DISABLE_UPPER_LAYER)
 	if (rcv->urg_seen && after(rcv->urg_ptr + 1, this_seq + lost) &&
 			before(rcv->urg_ptr, this_seq + datalen)) {
 		to_copy = rcv->urg_ptr - (this_seq + lost);
@@ -509,6 +510,8 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
 			}
 		}
 	}
+#endif
+
 	if (fin) {
 		snd->state = FIN_SENT;
 		if (rcv->state == TCP_CLOSING)
@@ -534,19 +537,19 @@ tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
 			/* the packet straddles our window end */
 			get_ts(this_tcphdr, &snd->curr_ts);
 
+#if defined(DISABLE_UPPER_LAYER)
 			// TCP algorithm test, do not copy packet data for upper layer use -- Kay
-			// ======================================================================
 			struct lurker_node *i = a_tcp->listeners;
 			(i->item) (a_tcp, &i->data);
 			rcv->count_new = datalen;
 			rcv->count += datalen;
-			// ======================================================================
-			/*
+#endif
+
 			add_from_skb(a_tcp, rcv, snd, (u_char *)data, datalen, this_seq,
 					(this_tcphdr->th_flags & TH_FIN),
 					(this_tcphdr->th_flags & TH_URG),
 					ntohs(this_tcphdr->th_urp) + this_seq - 1);
-			*/
+
 			/*
 			 * Do we have any old packets to ack that the above
 			 * made visible? (Go forward from skb)
@@ -752,10 +755,12 @@ process_tcp(u_char * data, int skblen)
   struct tcp_stream *a_tcp;
   struct half_stream *snd, *rcv;
 
+#if 0
 	static int a=0;
 	a++;
 	if (a % 50000 == 0)
 	printf(" %d \n", a);
+#endif
 
   ugly_iphdr = this_iphdr;
   iplen = ntohs(this_iphdr->ip_len);
@@ -817,18 +822,6 @@ process_tcp(u_char * data, int skblen)
       add_new_tcp(this_tcphdr, this_iphdr);
     return;
   }
-
-	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
-		a_tcp->addr.dest == this_tcphdr->th_dport &&
-		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
-		a_tcp->addr.daddr == this_iphdr->ip_dst.s_addr) ||
-		(a_tcp->addr.dest == this_tcphdr->th_sport &&
-		a_tcp->addr.source == this_tcphdr->th_dport &&
-		a_tcp->addr.daddr == this_iphdr->ip_src.s_addr &&
-		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
- 		false_positive ++;
-	}
-
 
   if (from_client) {
     snd = &a_tcp->client;

@@ -132,7 +132,7 @@ inline uint8_t get_major_location(sig_type sign)
 	return sign & 0x07;
 }
 
-#else
+#else // NEW_TCP macro is enabled only.
 inline void store_index_l(const idx_type index, elem_list_type *ptr)
 {
 	ptr->elem.index = index;

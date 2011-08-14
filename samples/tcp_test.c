@@ -25,19 +25,27 @@ int tcp_reset = 0;
 
 char trace_file[128];
 
-extern uint64_t tcp_proc_time;
-extern uint64_t tcp_proc_num;
-extern int false_positive;
-extern int conflict_into_list;
-extern int search_num, search_hit_num;
-extern int add_num, add_hit_num;
-extern int delete_num, delete_hit_num;
-extern int not_found;
+uint64_t tcp_proc_time = 0;
+uint64_t tcp_proc_num = 0;
+
+int false_positive = 0;
+int conflict_into_list = 0;
+
+int search_num = 0, search_hit_num = 0, search_set_hit_num = 0;
+int add_num = 0, add_hit_num = 0, add_set_hit_num = 0;
+int delete_num = 0, delete_hit_num = 0, delete_set_hit_num = 0;
+int not_found = 0;
 
 extern int number_of_cpus_used;
 
-extern int max_tcp_num;
-extern int total_tcp_num;
+int max_tcp_num = 0;
+int total_tcp_num = 0;
+int tcp_num = 0;
+
+uint64_t total_packet_num = 0;
+uint64_t total_packet_len = 0;
+
+struct timeval begin_time, end_time;
 
 void
 tcp_callback (struct tcp_stream *a_tcp, void **this_time_not_needed)
@@ -86,6 +94,8 @@ main (int argc, char *argv[])
 {
 	int opt, cpu_num;
 	extern char *optarg;
+	uint64_t process_time;
+	float speed;
 
 	while ((opt = getopt(argc, argv, "p:f:i:")) != -1) {
 		switch (opt) {
@@ -106,7 +116,6 @@ main (int argc, char *argv[])
 	
 #if defined(PARALLEL)
 	number_of_cpus_used = cpu_num;
-	printf("++++++++++++++++++++++++ %d ==========================\n", number_of_cpus_used);
 #endif
 	if (!nids_init()) {
 		printf("%s\n", nids_errbuf);
@@ -114,12 +123,19 @@ main (int argc, char *argv[])
 	}
 	nids_register_tcp (tcp_callback);
 	nids_run ();
-#if 0
+#if 1
 	printf("TCP time is %llu, number = %d\n", tcp_proc_time/(tcp_proc_num+1), tcp_proc_num);
 	printf("false positive = %d, conflict into list = %d\n", false_positive, conflict_into_list);
 	printf("Major location statistics: Search : %d/%d, Not found : %d, Add : %d/%d, Delete : %d/%d\n",
 			search_hit_num, search_num, not_found, add_hit_num, add_num, delete_hit_num, delete_num);
-//	printf("Total TCP number is %d, Max TCP number is %d\n", total_tcp_num, max_tcp_num);
+	printf("Total TCP number is %d, Max TCP number is %d\n", total_tcp_num, max_tcp_num);
+
+	process_time = compute_time(&begin_time, &end_time);
+	speed = ((float) total_packet_len * 8) / ((float) process_time * 1000);
+
+	printf("Processed Packets : %d, in %d (us) \n", total_packet_num, process_time);
+	printf("Average Packet Length is %d\n", total_packet_len / total_packet_num);
+	printf("Processing speed: %5.2f Gbps, %5.2f Mpps\n", speed, total_packet_num/(float)process_time);
 #endif
 	return 0;
 }

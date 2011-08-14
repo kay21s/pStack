@@ -15,24 +15,24 @@
 #define SET_NUMBER 80000 //0.08 Million buckets = 1.28 Million Elem
 #define CACHE_ELEM_NUM 1280000 // element number stored in cache, 80000 * 16
 
-int conflict_into_list = 0;
-int false_positive = 0;
+extern int conflict_into_list;
+extern int false_positive;
 
-int search_num = 0, search_hit_num = 0, search_set_hit_num = 0;
-int add_num = 0, add_hit_num = 0, add_set_hit_num = 0;
-int delete_num = 0, delete_hit_num = 0, delete_set_hit_num = 0;
-int not_found = 0;
-
-extern struct proc_node *tcp_procs;
+extern int search_num, search_hit_num, search_set_hit_num;
+extern int add_num, add_hit_num, add_set_hit_num;
+extern int delete_num, delete_hit_num, delete_set_hit_num;
+extern int not_found;
 
 static void *tcp_stream_table;
 static struct tcp_stream *tcb_array;
 static elem_list_type **conflict_list;
+extern struct proc_node *tcp_procs;
 
 extern int tcp_num;
 extern int max_tcp_num;
 extern int total_tcp_num;
 extern int tcp_stream_table_size;
+
 extern int get_ts(struct tcphdr *, unsigned int *);
 extern int get_wscale(struct tcphdr *, unsigned int *);
 extern int mk_hash_index(struct tuple4);
@@ -630,10 +630,12 @@ process_tcp(u_char * data, int skblen)
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
 
+#if 0
 	static int a=0;
 	a++;
 	if (a % 50000 == 0)
 	printf(" %d \n", a);
+#endif
 
 	//  ugly_iphdr = this_iphdr;
 	iplen = ntohs(this_iphdr->ip_len);

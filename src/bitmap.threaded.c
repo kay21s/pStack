@@ -19,6 +19,10 @@ void init_bitmap(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	tcp_thread_local_p->bitmap_size = BITMAP_SIZE/(number_of_cpus_used - 1);
 	tcp_thread_local_p->bitmap = calloc(tcp_thread_local_p->bitmap_size, sizeof(uint64_t));
+	if (!tcp_thread_local_p->bitmap) {
+		printf("Error allocating bitmap!\n");
+		exit(0);
+	}
 	memset((void *)tcp_thread_local_p->bitmap, 0, tcp_thread_local_p->bitmap_size * 8);
 }
 
