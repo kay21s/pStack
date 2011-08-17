@@ -64,7 +64,7 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM (1 << 20)
+#define MAX_STREAM 1500000
 #define SET_ASSOCIATIVE 8 // (64-8)/(4+3)
 
 #define INDEX_OFFSET 32 // 8 way-associative, 4 bytes for each signature
@@ -86,7 +86,7 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM (1 << 20)
+#define MAX_STREAM 1500000
 #define SET_ASSOCIATIVE 7 // (64-8)/8
 
 #endif

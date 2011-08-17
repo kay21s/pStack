@@ -321,6 +321,8 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
 		rcv->urg_ptr = urg_ptr;
 		rcv->urg_seen = 1;
 	}
+
+#if !defined(DISABLE_UPPER_LAYER)
 	if (rcv->urg_seen && after(rcv->urg_ptr + 1, this_seq + lost) &&
 			before(rcv->urg_ptr, this_seq + datalen)) {
 		to_copy = rcv->urg_ptr - (this_seq + lost);
@@ -364,6 +366,7 @@ add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
 			}
 		}
 	}
+#endif
 	if (fin) {
 		snd->state = FIN_SENT;
 		if (rcv->state == TCP_CLOSING)
@@ -388,10 +391,18 @@ tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
 		if (after(this_seq + datalen + (this_tcphdr->th_flags & TH_FIN), EXP_SEQ)) {
 			/* the packet straddles our window end */
 			get_ts(this_tcphdr, &snd->curr_ts);
+
+#if defined(DISABLE_UPPER_LAYER)
+			// TCP algorithm test, do not copy packet data for upper layer use -- Kay
+			rcv->count_new = datalen;
+			rcv->count += datalen;
+#endif
 			add_from_skb(a_tcp, rcv, snd, (u_char *)data, datalen, this_seq,
 					(this_tcphdr->th_flags & TH_FIN),
 					(this_tcphdr->th_flags & TH_URG),
-					ntohs(this_tcphdr->th_urp) + this_seq - 1, tcp_thread_local_p);
+					ntohs(this_tcphdr->th_urp) + this_seq - 1,
+					tcp_thread_local_p);
+
 			/*
 			 * Do we have any old packets to ack that the above
 			 * made visible? (Go forward from skb)

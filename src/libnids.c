@@ -27,6 +27,7 @@
 #include "ip_fragment.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
+#include "conn_origin.threaded.h"
 #include "conn_tcp.threaded.h"
 #include "conn_indexfree.threaded.h"
 #include "conn_major_indexfree.threaded.h"
@@ -54,12 +55,14 @@ extern FIFO_BUFFER buffer_g[];
 
 #define LOAD_BALANCE_ARRAY_SIZE 32
 
-static _IP_THREAD_LOCAL_P ip_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(16)));
-static pthread_t  ip_thread_ctrl[MAX_CPU_CORES] __attribute__((aligned(16)));
-static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(16)));
+static _IP_THREAD_LOCAL_P ip_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(64)));
+static pthread_t  ip_thread_ctrl[MAX_CPU_CORES] __attribute__((aligned(64)));
+static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(64)));
+
+TEST_SET tcp_test[MAX_CPU_CORES] __attribute__((aligned(64)));
 
 int cpu_id[8] = {2,4,6,1,3,5,7};
-int number_of_cpus_used;
+extern int number_of_cpus_used;
 int cpus_time_used[MAX_CPU_CORES];
 
 int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
@@ -100,8 +103,13 @@ struct pcap_pkthdr * nids_last_pcap_header = NULL;
 u_char *nids_last_pcap_data = NULL;
 u_int nids_linkoffset = 0;
 
-uint64_t tcp_proc_time = 0;
-uint64_t tcp_proc_num = 0;
+extern uint64_t tcp_proc_time;
+extern uint64_t tcp_proc_num;
+
+extern uint64_t total_packet_num;
+extern uint64_t	total_packet_len;
+
+extern struct timeval begin_time, end_time;
 
 char *nids_warnings[] = {
     "Murphy - you never should see this message !",
@@ -246,13 +254,14 @@ static void call_ip_frag_procs(void *data, bpf_u_int32 caplen)
 	// can use its own ID as the FIFO ID.
 	u_short fifo_id = ap_core_id;
 
-	void *data_buf = malloc(caplen);
-	memcpy(data_buf, data, caplen);
+// !	void *data_buf = malloc(caplen);
+// !	memcpy(data_buf, data, caplen);
 
 	{
 		// Send packets to consumer through FIFO
 		FIFO_ELEM elem;
-		FIFO_ELEM_DATA(&elem) = data_buf;
+		// ! FIFO_ELEM_DATA(&elem) = data_buf;
+		FIFO_ELEM_DATA(&elem) = data;
 		FIFO_ELEM_SIZE(&elem) = caplen; 
 
 		do{ 
@@ -454,6 +463,10 @@ void nids_pcap_handler(u_char * par, struct pcap_pkthdr *hdr, u_char * data)
 	} else 
 #endif
 		data_aligned = data + nids_linkoffset;
+
+	// Statistics on Performance
+	total_packet_num ++;
+	total_packet_len += hdr->caplen;
 
 	call_ip_frag_procs(data_aligned,hdr->caplen - nids_linkoffset);
 }
@@ -872,8 +885,9 @@ int nids_run()
 		return -1;
 	}
 #endif
-
+	gettimeofday(&begin_time, 0);
 	pcap_loop(desc, -1, (pcap_handler) nids_pcap_handler, 0);
+	gettimeofday(&end_time, 0);
 
 #if defined(PARALLEL)
 	int i, j, res;

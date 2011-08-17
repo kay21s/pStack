@@ -16,13 +16,7 @@
 
 #define SET_NUMBER 200000 //0.2 Million buckets = 1.4 Million Elem
 
-int conflict_into_list = 0;
-int false_positive = 0;
-
-int search_num = 0, search_hit_num = 0;
-int add_num = 0, add_hit_num = 0;
-int delete_num = 0, delete_hit_num = 0;
-int not_found = 0;
+extern TEST_SET tcp_test[MAX_CPU_CORES];
 
 extern int number_of_cpus_used;
 extern struct proc_node *tcp_procs;
@@ -50,7 +44,7 @@ int is_false_positive(struct tuple4 addr, idx_type tcb_index, TCP_THREAD_LOCAL_P
 		addr.saddr == tcb_p->addr.daddr ))) {
 
 		// Yes, it is false positive
-		false_positive ++;
+		tcp_test[tcp_thread_local_p->self_cpu_id].false_positive ++;
 
 #if 1		
 		int sign2 = calc_signature(
@@ -120,8 +114,15 @@ int is_false_positive(struct tuple4 addr, idx_type tcb_index, TCP_THREAD_LOCAL_P
 u_int
 mk_hash_index(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
-  u_int hash = addr.saddr ^ addr.source ^ addr.daddr ^ addr.dest;
-  return hash % tcp_thread_local_p->tcp_stream_table_size;
+#if defined(CRC_HASH)
+	unsigned int crc1 = 0;
+	crc1 = _mm_crc32_u32(crc1, addr.saddr ^ addr.daddr);
+	crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+	return crc1 % tcp_thread_local_p->tcp_stream_table_size;
+#else
+	u_int hash = addr.saddr ^ addr.source ^ addr.daddr ^ addr.dest;
+	return hash % tcp_thread_local_p->tcp_stream_table_size;
+#endif
 }
 
 struct tcp_stream *
@@ -151,7 +152,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	search_num ++;
+	tcp_test[tcp_thread_local_p->self_cpu_id].search_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = get_cached_index(set_header, loc);
 
@@ -162,7 +163,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 			else
 				*from_client = 0;
 
-			search_hit_num ++;
+			tcp_test[tcp_thread_local_p->self_cpu_id].search_hit_num ++;
 			return &tcp_thread_local_p->tcb_array[tcb_index];
 		}
 	}
@@ -207,7 +208,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	}
 
 	// Not found
-	not_found ++;
+	tcp_test[tcp_thread_local_p->self_cpu_id].not_found ++;
 	return NULL;
 }
 
@@ -228,12 +229,12 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	add_num ++;
+	tcp_test[tcp_thread_local_p->self_cpu_id].add_num ++;
 	if (sig_match_e(0, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = sign;
 		store_cached_index(set_header, loc, index);
-		add_hit_num ++;
+		tcp_test[tcp_thread_local_p->self_cpu_id].add_hit_num ++;
 		return;
 	}
 #endif
@@ -248,7 +249,8 @@ static void add_into_cache(struct tuple4 addr, idx_type index, struct tcp_stream
 		}
 	}
 
-	conflict_into_list ++;
+	tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list ++;
+
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
@@ -267,13 +269,19 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 	struct tcp_stream *a_tcp;
 	struct tuple4 addr;
 	idx_type index;
+	int core;
 
 	addr.source = this_tcphdr->th_sport;
 	addr.dest = this_tcphdr->th_dport;
 	addr.saddr = this_iphdr->ip_src.s_addr;
 	addr.daddr = this_iphdr->ip_dst.s_addr;
 
-	tcp_thread_local_p->tcp_num++;
+	core = tcp_thread_local_p->self_cpu_id;
+	tcp_test[core].tcp_num ++;
+	tcp_test[core].total_tcp_num ++;
+	if (tcp_test[core].tcp_num > tcp_test[core].max_tcp_num) {
+		tcp_test[core].max_tcp_num = tcp_test[core].tcp_num;
+	}
 
 	// get free index from bitmap
 	index = get_free_index(tcp_thread_local_p);
@@ -318,13 +326,13 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	delete_num ++;
+	tcp_test[tcp_thread_local_p->self_cpu_id].delete_num ++;
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = get_cached_index(set_header, loc);
 		if (!is_false_positive(addr, tcb_index, tcp_thread_local_p)) {
 			ptr = set_header + loc;
 			ptr->signature = 0;
-			delete_hit_num ++;
+			tcp_test[tcp_thread_local_p->self_cpu_id].delete_hit_num ++;
 			return tcb_index;
 		}
 	}
@@ -395,7 +403,7 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_loc
 		free(i);
 		i = j;
 	}
-	tcp_thread_local_p->tcp_num --;
+	tcp_test[tcp_thread_local_p->self_cpu_id].tcp_num --;
 
 	tcb_index = delete_from_cache(a_tcp, tcp_thread_local_p);
 	ret_free_index(tcb_index, tcp_thread_local_p);
@@ -447,7 +455,6 @@ tcp_exit(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	free(tcp_thread_local_p->tcb_array);
 	free(tcp_thread_local_p->tcp_stream_table);
 	tcp_thread_local_p->tcp_stream_table = NULL;
-	tcp_thread_local_p->tcp_num = 0;
 	return;
 }
 
@@ -462,10 +469,13 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
 
+#if 0
 	static int a =0;
 	a ++;
 	if (a % 50000 == 0)
 		printf(" %d \n", a);
+#endif
+
 	//  ugly_iphdr = this_iphdr;
 	iplen = ntohs(this_iphdr->ip_len);
 	if ((unsigned)iplen < 4 * this_iphdr->ip_hl + sizeof(struct tcphdr)) {
@@ -527,6 +537,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 		return;
 	}
 
+#if 0
 	if (!((a_tcp->addr.source == this_tcphdr->th_sport &&
 		a_tcp->addr.dest == this_tcphdr->th_dport &&
 		a_tcp->addr.saddr == this_iphdr->ip_src.s_addr &&
@@ -537,7 +548,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 		a_tcp->addr.saddr == this_iphdr->ip_dst.s_addr))) {
 		false_positive ++;
 	}
-
+#endif
 
 	if (from_client) {
 		snd = &a_tcp->client;
