@@ -397,12 +397,12 @@ tcp_queue(struct tcp_stream * a_tcp, struct tcphdr * this_tcphdr,
 			rcv->count_new = datalen;
 			rcv->count += datalen;
 #endif
+			
 			add_from_skb(a_tcp, rcv, snd, (u_char *)data, datalen, this_seq,
 					(this_tcphdr->th_flags & TH_FIN),
 					(this_tcphdr->th_flags & TH_URG),
 					ntohs(this_tcphdr->th_urp) + this_seq - 1,
 					tcp_thread_local_p);
-
 			/*
 			 * Do we have any old packets to ack that the above
 			 * made visible? (Go forward from skb)
