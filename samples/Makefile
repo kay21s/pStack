@@ -13,7 +13,7 @@ PCAP_CFLAGS	= -I/usr/local/include
 PCAPLIB		= -L/usr/local/lib -lpcap
 
 LIBS_CFLAGS	= -I../src $(PCAP_CFLAGS)
-LIBS		= -L../src -lnids -lpthread $(PCAPLIB) 
+LIBS		= -L../src -lnids -lm -lpthread $(PCAPLIB) 
 
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<

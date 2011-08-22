@@ -222,7 +222,6 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 		}
 	}
 
-	//exit(0);
 	tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list ++;
 	// Insert into the collision list
 	// FIXME : Optimize the malloc with lock-free library
@@ -268,6 +267,10 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 
 	// add the index into hash cache
 	index = add_into_cache(addr, tcp_thread_local_p);
+	if (index >= MAX_STREAM/(number_of_cpus_used - 1)) {
+		printf("Too many conflict into list, index = %d, conflict into list = %d\n", index, tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list);
+		exit(0);
+	}
 
 	// let's have the block
 	a_tcp = &(tcp_thread_local_p->tcb_array[index]);

@@ -13,9 +13,9 @@ uint64_t bitmap[BITMAP_SIZE];
 
 extern int tcp_num;
 
-inline void set(int i) { uint64_t a = 1; bitmap[i>>SHIFT] |= (a << (i & MASK));}
-inline void clr(int i) { uint64_t a = 1; bitmap[i>>SHIFT] &= ~(a << (i & MASK));}
-inline int test(int i) { uint64_t a = 1; return bitmap[i>>SHIFT] & (a << (i & MASK));}
+inline void set(int i) { bitmap[i>>SHIFT] |= ((uint64_t)1 << (i & MASK));}
+inline void clr(int i) { bitmap[i>>SHIFT] &= ~((uint64_t)1 << (i & MASK));}
+inline int test(int i) { return bitmap[i>>SHIFT] & ((uint64_t)1 << (i & MASK));}
 
 void init_bitmap(void)
 {

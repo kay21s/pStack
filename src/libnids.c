@@ -43,11 +43,11 @@
 #include "nids.h"
 #include "fifo.h"
 
+#include <sched.h>
+#include "parallel.h"
 
 #if defined(PARALLEL)
 
-#include <sched.h>
-#include "parallel.h"
 
 extern FIFO_CTRL fifo_g[];
 extern FIFO_BUFFER buffer_g[];
@@ -59,7 +59,6 @@ static _IP_THREAD_LOCAL_P ip_thread_local_struct[MAX_CPU_CORES] __attribute__((a
 static pthread_t  ip_thread_ctrl[MAX_CPU_CORES] __attribute__((aligned(64)));
 static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(64)));
 
-TEST_SET tcp_test[MAX_CPU_CORES] __attribute__((aligned(64)));
 
 int cpu_id[8] = {2,4,6,1,3,5,7};
 extern int number_of_cpus_used;
@@ -77,6 +76,7 @@ int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
 };
 
 #endif
+TEST_SET tcp_test[MAX_CPU_CORES] __attribute__((aligned(64)));
 
 extern char trace_file[128];
 

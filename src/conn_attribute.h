@@ -7,6 +7,8 @@
 #define PTR_SIZE 8
 #define SET_SIZE CACHE_LINE_SIZE
 
+#define MAX_STREAM 2000000
+
 #if defined(INDEXFREE_TCP)
 // 14-way set associative, only store signature in cache table
 // TCB index is the same as the signature (hash_index, pos in line)
@@ -24,7 +26,6 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM 1500000 // Note that this should be larger than CACHE_ELEM_NUM in indexfree version
 #define SET_ASSOCIATIVE 14 // (64-8)/4
 
 #elif defined(MAJOR_INDEXFREE_TCP)
@@ -45,7 +46,6 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM 1500000
 #define SET_ASSOCIATIVE 16 // 64/4
 
 #elif defined(COMPACT_TABLE)
@@ -64,7 +64,6 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM 1500000
 #define SET_ASSOCIATIVE 8 // (64-8)/(4+3)
 
 #define INDEX_OFFSET 32 // 8 way-associative, 4 bytes for each signature
@@ -86,7 +85,6 @@ typedef struct ll_type {
 	struct ll_type *next;
 } elem_list_type;
 
-#define MAX_STREAM 1500000
 #define SET_ASSOCIATIVE 7 // (64-8)/8
 
 #endif

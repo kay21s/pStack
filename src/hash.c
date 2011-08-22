@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -52,6 +53,13 @@ init_hash ()
     }
 }
 
+#if defined(MULTIPLICATION_HASH)
+
+#define A 0.6180339887
+extern int tcp_stream_table_size;
+
+#endif
+
 u_int
 mkhash (u_int src, u_short sport, u_int dest, u_short dport)
 {
@@ -84,6 +92,10 @@ mkhash (u_int src, u_short sport, u_int dest, u_short dport)
 	crc1 = _mm_crc32_u32(crc1, src ^ dest);
 	crc1 = _mm_crc32_u32(crc1, sport ^ dport);
 	return crc1;
+#elif defined(MULTIPLICATION_HASH)
+	uint64_t key = ((uint64_t)(sport ^ dport) << 32) | (src ^ dest);
+	double ka = key * A;
+	return (u_int)floor(tcp_stream_table_size * (ka - floor(ka)));
 #else
 	u_int port = sport ^ dport;
 	return src ^ dest ^ port;

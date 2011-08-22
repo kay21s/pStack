@@ -14,8 +14,8 @@
 
 #if defined(MAJOR_INDEXFREE_TCP)
 
-#define SET_NUMBER 80000 //0.1 Million buckets = 1.6 Million Elem
-#define CACHE_ELEM_NUM (1280000 / (number_of_cpus_used - 1)) // element number stored in cache, 100000 * 16
+#define SET_NUMBER 100000 //0.1 Million buckets = 1.6 Million Elem
+#define CACHE_ELEM_NUM (1600000 / (number_of_cpus_used - 1)) // element number stored in cache, 100000 * 16
 
 extern TEST_SET tcp_test[MAX_CPU_CORES];
 
@@ -117,8 +117,9 @@ mk_hash_index(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 #if defined(CRC_HASH)
 	unsigned int crc1 = 0;
+	uint32_t port = addr.source ^ addr.dest;
 	crc1 = _mm_crc32_u32(crc1, addr.saddr ^ addr.daddr);
-	crc1 = _mm_crc32_u32(crc1, addr.source ^ addr.dest);
+	crc1 = _mm_crc32_u32(crc1, port);
 	return crc1 % tcp_thread_local_p->tcp_stream_table_size;
 #else
 	u_int hash = addr.saddr ^ addr.source ^ addr.daddr ^ addr.dest;
@@ -395,6 +396,10 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 
 	// add the index into hash cache
 	index = add_into_cache(addr, tcp_thread_local_p);
+	if (index >= MAX_STREAM/(number_of_cpus_used - 1)) {
+		printf("Too many conflict into list, index = %d, conflict into list = %d\n", index, tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list);
+		exit(0);
+	}
 
 	// let's have the block
 	a_tcp = &(tcp_thread_local_p->tcb_array[index]);
@@ -615,10 +620,6 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 void
 tcp_exit(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
-	int i;
-	struct lurker_node *j;
-	struct tcp_stream *a_tcp, *t_tcp;
-
 	if (!tcp_thread_local_p->tcp_stream_table || !tcp_thread_local_p->tcb_array)
 		return;
 	free(tcp_thread_local_p->tcb_array);

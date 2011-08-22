@@ -254,6 +254,10 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr)
 
 	// add the index into hash cache
 	index = add_into_cache(addr);
+	if (index >= MAX_STREAM) {
+		printf("Too many conflict into list, index = %d, conflict into list = %d\n", index, conflict_into_list);
+		exit(0);
+	}
 
 	// let's have the block
 	a_tcp = &(tcb_array[index]);
