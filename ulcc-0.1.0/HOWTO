@@ -1,0 +1,24 @@
+Easy steps to compile and test ULCC library on your machine:
+
+1. Edit src/arch.h and src/arch.c to localize the parameters for your machine.
+
+2. Go to src/ and run `make' to compile the library file; the .so library file will be copied
+to test/ folder and the utility programs will be copied to bin/ folder.
+
+3. Go to test/ folder and use test.c file as a starting point for writing your own ULCC code;
+
+4. When compiling test.c, make sure add `-lulcc' gcc option to link to libulcc.so library file, e.g.,
+	gcc -lulcc -o test test.c
+See bin/Makefile.
+
+5. Before running any ULCC program, go to bin/ folder. As root user, run
+	./ulcc_ctl start
+to setup ULCC environment. This only has to be done once, unless memory manager is enabled, in which case
+you need to run `./ulcc_ctl start' to start memory manager again every time after `./ulcc_ctl stop' command
+stops the memory manager. (By default, memory manager is disabled.)
+
+6. In case that any exceptions or errors happened when running your ULCC app, go to bin/ folder and run
+	./ulcc_ctl stop
+to clean the ULCC environment. Then you can fix your program and run it again.
+
+7. Enjoy it :)

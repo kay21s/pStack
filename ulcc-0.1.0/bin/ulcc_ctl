@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ ${1} = "start" ]; then
+	# Set max_map_count to a sufficiently large value
+	/sbin/sysctl vm.max_map_count=6553600
+
+	# Create ulcc environment resources
+	./ulccenv create
+
+	# If to use memory manager, start ulcc memory manager daemon here
+	#./ulccmmd
+else
+	if [ ${1} = "stop" ]; then
+		# If memory manager has been used, stop ulcc memory manager daemon here
+		#./ulccmmd stop
+
+		# Remove ulcc environment resources
+		./ulccenv remove
+	fi
+fi

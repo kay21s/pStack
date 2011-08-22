@@ -1,0 +1,5 @@
+1. Bug fixes
+> cache.c: test whether sem_cache_status != SEM_FAILED before sem_post in cache_status_unlock(); test whether
+	sem_busy_pages != SEM_FAILED before sem_post in busy_pages_unlock().
+> ulcc.c: replace CPU_COUNT macro with cc_cpuset_count function
+> util.c: replace CPU_OR macro with custom codes
