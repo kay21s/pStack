@@ -39,6 +39,7 @@ typedef struct _tcp_thread_local_p {
 #endif
 
 	int bitmap_size;
+	int walker;
 //	int tcp_num;
 	int tcp_stream_table_size;
 	int self_cpu_id;

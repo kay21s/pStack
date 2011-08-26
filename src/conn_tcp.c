@@ -436,6 +436,9 @@ tcp_init(int size)
 	int i;
 	struct tcp_timeout *tmp;
 
+	// Init bitmap
+	init_bitmap();
+
 	// The hash table
 	tcp_stream_table_size = SET_NUMBER;
 	tcp_stream_table = calloc(SET_NUMBER, SET_SIZE);
