@@ -12,7 +12,8 @@ int cache_to_cpus[ULCC_NUM_SHARED_CACHES][ULCC_NUM_CPUS_PER_CACHE] =
 {
 	/* For example, on our INTEL Core i5 machine with Linux 3.6.35 kernel,
 	 * the array looks like this (2 SMT threads on each of the two cores): */
-	{0, 1, 2, 3}
+	{0, 2, 4, 6},
+	{1, 3, 5, 7}
 };
 
 /* You DON'T need to change this function */

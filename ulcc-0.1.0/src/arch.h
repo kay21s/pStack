@@ -21,14 +21,14 @@
 #define ULCC_PAGE_BITS				12
 
 /* Cache size in KiB */
-#define ULCC_CACHE_KB				(3 * 1024)
+#define ULCC_CACHE_KB				(8 * 1024)
 /* Cache associativity */
-#define ULCC_CACHE_ASSOC			12
+#define ULCC_CACHE_ASSOC			16
 
 /* Number of physical threads sharing the same cache */
 #define ULCC_NUM_CPUS_PER_CACHE		4
 /* Number of shared caches */
-#define ULCC_NUM_SHARED_CACHES		1
+#define ULCC_NUM_SHARED_CACHES		2
 
 /* END OF EDIT (Please also go to arch.c to set the cache_to_cpus array )
  ***************************************************************************/

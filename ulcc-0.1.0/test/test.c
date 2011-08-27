@@ -23,7 +23,7 @@ void test1()
 {
 	cc_aid_t		aid_strong, aid_weak;
 	char			*p, *start, *end, c;
-	int				i, size = 4096 * 781;
+	int				i, size = 4096 * 1801;
 	struct timeval	t1, t2;
 	void			*mem;
 	cc_cacheslot_t	cs;
@@ -33,7 +33,7 @@ void test1()
 	/* Allocate a large data region whose size is larger than LLC */
 	mem = malloc(size);
 	start = (char *)ULCC_ALIGN_HIGHER((unsigned long)mem);
-	end = start + 4096 * 780;
+	end = start + 4096 * 1800;
 	for(p = start; p < end; p += 4096)
 	{
 		*p = 'x';
@@ -56,9 +56,9 @@ void test1()
 	 * incurring misses.
 	 */
 	cs.s_type = CC_PRIVATE;
-	cs.s_size = 4096 * 680;
+	cs.s_size = 4096 * 1600;
 	aid_strong = cc_alloc2((unsigned long)start,
-		(unsigned long)(start + 4096 * 640), NULL, &cs, 0);
+		(unsigned long)(start + 4096 * 1550), NULL, &cs, 0);
 	if(aid_strong == CC_AID_INVALID)
 	{
 		printf("cc_alloc2 error\n");
@@ -69,8 +69,8 @@ void test1()
 	 * the previously allocated private space.
 	 */
 	cs.s_type = CC_SHARED;
-	cs.s_size = 4096 * 60;
-	aid_weak = cc_alloc2_cpus((unsigned long)(start + 4096 * 640),
+	cs.s_size = 4096 * 200;
+	aid_weak = cc_alloc2_cpus((unsigned long)(start + 4096 * 1550),
 		(unsigned long)(end), NULL, &cs, 0);
 	if(aid_weak == CC_AID_INVALID)
 	{
@@ -135,7 +135,7 @@ void *thread_test2(void *param)
 		gettimeofday(&t1, NULL);
 		for(i = 0; i < 50000; i++)
 		{
-			for(p = data1_start; p < data1_end; p += 64)
+			for(p = data2_start; p < data2_end; p += 64)
 			{
 				r = *p;
 			}
@@ -151,7 +151,7 @@ void *thread_test2(void *param)
 
 void test2()
 {
-	int				size1 = 2 * 1024 * 1024, size2 = 8 * 1024 * 1024;
+	int				size1 = 6 * 1024 * 1024, size2 = 8 * 1024 * 1024;
 	pthread_t		tid[2] = {-1, -1};
 	void			*data1, *data2;
 	cc_aid_t		aid_data1, aid_data2;
@@ -248,7 +248,7 @@ void test3()
 {
 	cc_aid_t		aid_strong, aid_weak;
 	char			*p, *start, *end, c;
-	int				i, size = 4096 * 781;
+	int				i, size = 4096 * 1801;
 	struct timeval	t1, t2;
 	void			*mem;
 	cc_cacheslot_t	cs;
@@ -258,7 +258,7 @@ void test3()
 	/* Allocate a large data region whose size is larger than LLC */
 	mem = malloc(size);
 	start = (char *)ULCC_ALIGN_HIGHER((unsigned long)mem);
-	end = start + 4096 * 780;
+	end = start + 4096 * 1800;
 	for(p = start; p < end; p += 4096)
 	{
 		*p = 'x';
@@ -277,7 +277,7 @@ void test3()
 	printf("Time w/o ULCC: %.4lf s\n", TDIFF(t1, t2));
 
 	cs.s_type = CC_PRIVATE;
-	cs.s_size = 4096 * 680;
+	cs.s_size = 4096 * 1600;
 	aid_strong = cc_alloc(NULL, NULL, &cs, 0);
 	if(aid_strong == CC_AID_INVALID)
 	{
@@ -285,7 +285,7 @@ void test3()
 	}
 
 	cs.s_type = CC_SHARED;
-	cs.s_size = 4096 * 60;
+	cs.s_size = 4096 * 100;
 	aid_weak = cc_alloc_cpus(NULL, NULL, &cs, 0);
 	if(aid_weak == CC_AID_INVALID)
 	{
@@ -293,11 +293,11 @@ void test3()
 	}
 
 	if(cc_alloc_add2(aid_strong, (unsigned long)start,
-		(unsigned long)(start + 4096 * 640), 0) != aid_strong)
+		(unsigned long)(start + 4096 * 1550), 0) != aid_strong)
 	{
 		printf("cc_alloc_add2 error for strong locality data");
 	}
-	if(cc_alloc_add2(aid_weak, (unsigned long)(start + 4096 * 640),
+	if(cc_alloc_add2(aid_weak, (unsigned long)(start + 4096 * 1550),
 		(unsigned long)end, 0) != aid_weak)
 	{
 		printf("cc_alloc_add2 error for weak locality data");
