@@ -63,6 +63,7 @@ static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__(
 int cpu_id[8] = {2,4,6,1,3,5,7};
 extern int number_of_cpus_used;
 int cpus_time_used[MAX_CPU_CORES];
+pthread_barrier_t barr;
 
 int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -297,22 +298,27 @@ static void ip_queue_process_thread(void *cpu_id)
 
 	//! sched_setaffinity
 	unsigned long mask;
+	mask = (1 << thread_id);
 //	CPU_ZERO(&mask);
 //	CPU_SET(thread_id, &mask);
-//	mask = (1 << thread_id);
-	mask = 0x1;
+//	mask = 0x1;
 	
-	printf("HEY, IAM AP : %d\n", thread_id);
-
-/*
 	if (sched_setaffinity(0, sizeof(unsigned long), &mask) < 0) {
 		printf("Error: sched_setaffinity\n");
 		return ;
 	}
-*/
+
 	tcp_thread_local_struct[thread_id].self_cpu_id = thread_id;
 	tcp_init(nids_params.n_tcp_streams, &tcp_thread_local_struct[thread_id]);
 
+//	printf("HEY, IAM AP : %d\n", thread_id);
+	// Synchronization point
+	int rc = pthread_barrier_wait(&barr);
+	if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
+	{
+		printf("Could not wait on barrier\n");
+		exit(-1);
+	}
 
 	while (1) { /* loop "forever" */
 
@@ -773,8 +779,15 @@ int nids_init()
 		ip_frag_init(nids_params.n_tcp_streams, &ip_thread_local_struct[i]);
 		int thread_id = cpu_id[i];
 		tcp_thread_local_struct[thread_id].self_cpu_id = thread_id;
-		tcp_init(nids_params.n_tcp_streams, &tcp_thread_local_struct[thread_id]);
+		//tcp_init(nids_params.n_tcp_streams, &tcp_thread_local_struct[thread_id]);
 		fifo_init(i);
+	}
+
+	// Barrier initialization
+	if(pthread_barrier_init(&barr, NULL, number_of_cpus_used))
+	{
+		printf("Could not create a barrier\n");
+		return -1;
 	}
 
 	for (i = 0; i < number_of_cpus_used - 1; i ++) {
@@ -884,6 +897,14 @@ int nids_run()
 		printf("Error: sched_setaffinity\n");
 		return -1;
 	}
+
+	// Synchronization point
+	int rc = pthread_barrier_wait(&barr);
+	if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
+	{
+		printf("Could not wait on barrier\n");
+		exit(-1);
+	}
 #endif
 	gettimeofday(&begin_time, 0);
 	pcap_loop(desc, -1, (pcap_handler) nids_pcap_handler, 0);
@@ -899,7 +920,7 @@ int nids_run()
 		FIFO_ELEM_DATA(&elem) = (void *) 1;
 		FIFO_ELEM_SIZE(&elem) = (uint16_t) 0xFFFF;
 
-		for(j=0; j<=BATCH_SIZE; j++) {
+		for(j = 0; j <= BATCH_SIZE; j ++) {
 			do{
 				res = insert(&fifo_g[new_id], &buffer_g[new_id], elem);
 			}while(res < 0);

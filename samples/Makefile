@@ -13,7 +13,9 @@ PCAP_CFLAGS	= -I/usr/local/include
 PCAPLIB		= -L/usr/local/lib -lpcap
 
 LIBS_CFLAGS	= -I../src $(PCAP_CFLAGS)
-LIBS		= -L../src -lnids -lm -lpthread $(PCAPLIB) 
+LIBS		= -L../src -lnids -lm -lrt -lpthread $(PCAPLIB) 
+
+LDFLAGS		+= ../ulcc-0.1.0/src/libulcc.a
 
 .c.o:
 	$(CC) -c $(CFLAGS) -I. $(LIBS_CFLAGS) $<
@@ -22,7 +24,7 @@ all: tcp_test
 static: all
 
 tcp_test: tcp_test.o
-	$(CC) -o $@ tcp_test.o $(LIBS)
+	$(CC) -o $@ tcp_test.o $(LIBS) $(LDFLAGS) 
 
 clean:
 	rm -f *.o *~ tcp_test

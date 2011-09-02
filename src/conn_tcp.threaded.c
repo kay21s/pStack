@@ -416,7 +416,7 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	int i;
 	struct tcp_timeout *tmp;
 
-	init_bitmap(tcp_thread_local_p);
+	init_bitmap(tcp_thread_local_p, 0);
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);

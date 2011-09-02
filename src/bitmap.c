@@ -77,6 +77,8 @@ idx_type find_free_index()
 		walker = 0;
 
 	// this word has no bits free, continue
+	// FIXME: It's not right to declare all bits are allocated
+	// Just do it here since the probability is very low =)
 	if (bitmap[walker] == WORD_FULL) {
 		printf("Run out of bits????? Too many connections?????\n");
 		exit(0);

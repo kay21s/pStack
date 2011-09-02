@@ -14,14 +14,14 @@
  * EDIT information below to fit the parameters of your machine */
 
 /* 32-bit or 64-bit operating system? */
-#define _ULCC_CONFIG_OS32
-/*#define _ULCC_CONFIG_OS64*/
+//#define _ULCC_CONFIG_OS32
+#define _ULCC_CONFIG_OS64
 
 /* The number of bits for page offset in an address */
 #define ULCC_PAGE_BITS				12
 
 /* Cache size in KiB */
-#define ULCC_CACHE_KB				(8 * 1024)
+#define ULCC_CACHE_KB				(12 * 1024)
 /* Cache associativity */
 #define ULCC_CACHE_ASSOC			16
 

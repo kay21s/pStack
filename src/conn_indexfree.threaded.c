@@ -15,6 +15,7 @@
 #if defined(INDEXFREE_TCP)
 
 #define SET_NUMBER 100000 //0.1 Million buckets = 1.4 Million Elem
+#define TOTAL_CACHE_ELEM_NUM 1400000
 #define CACHE_ELEM_NUM (1400000 / (number_of_cpus_used - 1)) // element number stored in cache
 
 extern TEST_SET tcp_test[MAX_CPU_CORES];
@@ -388,7 +389,7 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	int i;
 	struct tcp_timeout *tmp;
 
-	init_bitmap(tcp_thread_local_p);
+	init_bitmap(tcp_thread_local_p, TOTAL_CACHE_ELEM_NUM);
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);

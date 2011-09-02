@@ -19,7 +19,7 @@
  */
 typedef struct cc_cacheregn_s
 {
-	unsigned char color_map[ULCC_NUM_CACHE_COLORS / 8];
+	unsigned char color_map[(ULCC_NUM_CACHE_COLORS + 8) / 8];
 } cc_cacheregn_t;
 
 /* set a bit in a color bitmap */

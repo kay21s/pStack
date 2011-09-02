@@ -6,7 +6,6 @@
 #define BITSPERWORD 64
 #define SHIFT 6
 #define MASK 0x3F
-#define BITMAP_SIZE (1 + MAX_STREAM / BITSPERWORD)
 
 extern int number_of_cpus_used;
 
@@ -63,9 +62,10 @@ idx_type find_free_index(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 inline void clr(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] |= ((uint64_t)1 << (i & MASK));}
 inline void set(int i, TCP_THREAD_LOCAL_P tcp_thread_local_p) { (tcp_thread_local_p->bitmap)[i>>SHIFT] &= ~((uint64_t)1 << (i & MASK));}
 
-void init_bitmap(TCP_THREAD_LOCAL_P tcp_thread_local_p)
+void init_bitmap(TCP_THREAD_LOCAL_P tcp_thread_local_p, int cache_elem_num)
 {
-	tcp_thread_local_p->bitmap_size = BITMAP_SIZE/(number_of_cpus_used - 1);
+	int bitmap_size = (MAX_STREAM - cache_elem_num) / BITSPERWORD;
+	tcp_thread_local_p->bitmap_size = bitmap_size/(number_of_cpus_used - 1);
 	tcp_thread_local_p->bitmap = calloc(tcp_thread_local_p->bitmap_size, sizeof(uint64_t));
 	if (!tcp_thread_local_p->bitmap) {
 		printf("Error allocating bitmap!\n");

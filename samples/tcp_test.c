@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include "nids.h"
 #include "parallel.h"
+#include "../ulcc-0.1.0/src/ulcc.h"
+#include "../ulcc-0.1.0/src/remapper.h"
 
 #define LOG_MAX 100
 #define SZLACZEK "\n--------------------------------------------------\n"

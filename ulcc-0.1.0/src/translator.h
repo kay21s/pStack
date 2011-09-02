@@ -15,13 +15,12 @@
 /* Pagemap interface masks */
 #define PAGEMAP_MASK_PFN		(((cc_uint64_t)1 << 55) - 1)
 #define PAGEMAP_PAGE_PRESENT	((cc_uint64_t)1 << 63)
-#define ULCC_MASK_PFN_COLOR		(ULCC_NUM_CACHE_COLORS - 1)
 
 /* Whether this physical page is present in memory */
 #define cc_pfn_present(pfn)		((pfn) > 0)
 
 /* The color of this physical page */
-#define cc_pfn_color(pfn)		((pfn) & ULCC_MASK_PFN_COLOR)
+#define cc_pfn_color(pfn)		((pfn) % ULCC_NUM_CACHE_COLORS)
 
 /* Translation from virtual page addresses to their physical page numbers */
 int _ULCC_HIDDEN cc_addr_translate(cc_uint64_t *pfnbuf,
