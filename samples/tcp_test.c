@@ -126,7 +126,7 @@ main (int argc, char *argv[])
 		printf("%s\n", nids_errbuf);
 		exit(1);
 	}
-	nids_register_tcp (tcp_callback);
+	//nids_register_tcp (tcp_callback);
 	nids_run ();
 #if 1
 	
@@ -159,7 +159,7 @@ main (int argc, char *argv[])
 	printf("Total TCP number is %d, Max TCP number is %d\n", total_tcp_num, max_tcp_num);
 #endif
 	process_time = compute_time(&begin_time, &end_time);
-	speed = ((float) total_packet_len * 8) / ((float) process_time * 1000);
+	speed = ((float) (total_packet_len + 24 * total_packet_num) * 8) / ((float) process_time * 1000);
 
 	printf("Processed Packets : %d, in %d (us) \n", total_packet_num, process_time);
 	printf("Average Packet Length is %d\n", total_packet_len / total_packet_num);

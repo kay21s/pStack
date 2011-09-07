@@ -70,6 +70,9 @@ add_tcp_closing_timeout(struct tcp_stream * a_tcp, TCP_THREAD_LOCAL_P  tcp_threa
 	struct tcp_timeout *to;
 	struct tcp_timeout *newto;
 
+	// FIXME: tcp_timeout not available
+	return;
+
 	if (!nids_params.tcp_workarounds)
 		return;
 	newto = malloc(sizeof (struct tcp_timeout));
@@ -100,8 +103,13 @@ del_tcp_closing_timeout(struct tcp_stream * a_tcp, TCP_THREAD_LOCAL_P  tcp_threa
 {
 	struct tcp_timeout *to;
 
+	// FIXME: tcp_timeout not available
+	return;
+
+	// Folowing two lines will access variable in IP core 
 	if (!nids_params.tcp_workarounds)
 		return;
+
 	for (to = tcp_thread_local_p->nids_tcp_timeouts; to; to = to->next)
 		if (to->a_tcp == a_tcp)
 			break;
@@ -191,6 +199,7 @@ int get_wscale(struct tcphdr * this_tcphdr, unsigned int * ws)
 	return ret;
 }
 
+#if !defined(DISABLE_UPPER_LAYER)
 static void
 add2buf(struct half_stream * rcv, unsigned char *data, int datalen)
 {
@@ -220,6 +229,7 @@ add2buf(struct half_stream * rcv, unsigned char *data, int datalen)
 	rcv->count_new += datalen;
 	rcv->count += datalen;
 }
+
 
 static void
 ride_lurkers(struct tcp_stream * a_tcp, char mask)
@@ -306,6 +316,7 @@ prune_listeners:
 			i = i->next;
 		}
 }
+#endif
 
 static void
 add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,

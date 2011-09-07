@@ -393,7 +393,15 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);
+#if defined(MEM_ALIGN)
+	if (0 != posix_memalign((void **)&(tcp_thread_local_p->tcp_stream_table), 64, SET_NUMBER/(number_of_cpus_used - 1) * SET_SIZE)) {
+		printf("memalign allocation failed, exit\n");
+		exit(0);
+	}
+	memset(tcp_thread_local_p->tcp_stream_table, 0, SET_NUMBER/(number_of_cpus_used - 1) * SET_SIZE);
+#else
 	tcp_thread_local_p->tcp_stream_table = calloc(SET_NUMBER/(number_of_cpus_used - 1), SET_SIZE);
+#endif
 	if (!tcp_thread_local_p->tcp_stream_table) {
 		printf("tcp_stream_table in tcp_init");
 		exit(0);
@@ -401,7 +409,16 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	}
 
 	// The TCB array
+#if defined(MEM_ALIGN)
+	int core_elem_num = MAX_STREAM/(number_of_cpus_used - 1);
+	if (0 != posix_memalign((void **)&(tcp_thread_local_p->tcb_array), 64, core_elem_num * sizeof(struct tcp_stream))) {
+		printf("memalign allocation failed, exit\n");
+		exit(0);
+	}
+	memset(tcp_thread_local_p->tcb_array, 0, core_elem_num * sizeof(struct tcp_stream));
+#else
 	tcp_thread_local_p->tcb_array = calloc(MAX_STREAM/(number_of_cpus_used - 1), sizeof(struct tcp_stream));
+#endif
 	if (!tcp_thread_local_p->tcb_array) {
 		printf("tcp_array in tcp_init");
 		exit(0);
@@ -602,6 +619,8 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 
 					a_tcp->server.state = TCP_ESTABLISHED;
 					a_tcp->nids_state = NIDS_JUST_EST;
+
+#if !defined(DISABLE_UPPER_LAYER)
 					for (i = tcp_procs; i; i = i->next) {
 						char whatto = 0;
 						char cc = a_tcp->client.collect;
@@ -642,6 +661,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 						nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
 						return;
 					}
+#endif
 					a_tcp->nids_state = NIDS_DATA;
 				}
 			}

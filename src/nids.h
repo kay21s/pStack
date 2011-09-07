@@ -63,41 +63,46 @@ struct tuple4
 struct half_stream
 {
   char state;
-  char collect;
-  char collect_urg;
+  u_char ts_on;
+  u_char wscale_on;
+  u_char urg_seen;
 
-  char *data;
-  int offset;
-  int count;
-  int count_new;
-  int bufsize;
+  u_short window;
+
+  struct skbuff *list;
+  struct skbuff *listtail;
+
   int rmem_alloc;
-
   int urg_count;
 //  u_int acked;
   u_int seq;
   u_int ack_seq;
   u_int first_data_seq;
 //  u_char urgdata;
-  u_char count_new_urg;
-  u_char urg_seen;
   u_int urg_ptr;
-  u_short window;
-  u_char ts_on;
-  u_char wscale_on;
   u_int curr_ts; 
   u_int wscale;
-  struct skbuff *list;
-  struct skbuff *listtail;
+
+// Not usually used
+#if !defined(DISABLE_UPPER_LAYER)
+  char collect;
+  char collect_urg;
+  u_char count_new_urg;
+  int offset;
+  int bufsize;
+#endif
+  int count;
+  int count_new;
+  char *data;
 };
 
 struct tcp_stream
 {
   struct tuple4 addr;
   char nids_state;
-  struct lurker_node *listeners;
   struct half_stream client;
   struct half_stream server;
+  struct lurker_node *listeners;
   int hash_index;
   int read;
 #if defined(ORIGIN_TCP)

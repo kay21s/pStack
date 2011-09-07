@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include  <nmmintrin.h>
 #include "nids.h"
 #include "util.h"
 #include "bitmap.threaded.h"
 #include "conn_major_indexfree.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
-#include  <nmmintrin.h>
+#include "mem.h"
 
 #include "../ulcc-0.1.0/src/ulcc.h"
 #include "../ulcc-0.1.0/src/remapper.h"
@@ -196,6 +197,40 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 		}
 	}
 
+#if 1
+	uint8_t major = loc;
+	// From start to previous subset
+	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &(tcp_thread_local_p->tcb_array)[tcb_index];
+		}
+	}
+	for (loc = 0; loc < major; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &(tcp_thread_local_p->tcb_array)[tcb_index];
+		}
+	}
+#else
 	// Search the Subset of the Major location
 	uint8_t subset = get_subset_index(sign);
 	for (loc = subset; loc < subset + 4; loc ++) {
@@ -248,6 +283,7 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 			return &(tcp_thread_local_p->tcb_array)[tcb_index];
 		}
 	}
+#endif
 #else
 
 	for (ptr = set_header, i = 0;
@@ -319,6 +355,25 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 		return calc_index(hash_index, loc);
 	}
 
+#if 1
+	uint8_t major = loc;
+	// From start to previous subset
+	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(0, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = sign;
+			return calc_index(hash_index, loc);
+		}
+	}
+
+	for (loc = 0; loc < major; loc ++) {
+		if (sig_match_e(0, set_header + loc)) {
+			ptr = set_header + loc;
+			ptr->signature = sign;
+			return calc_index(hash_index, loc);
+		}
+	}
+#else
 	uint8_t subset = get_subset_index(sign);
 	for (loc = subset; loc < subset + 4; loc ++) {
 		if (sig_match_e(0, set_header + loc)) {
@@ -346,6 +401,7 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 			return calc_index(hash_index, loc);
 		}
 	}
+#endif
 #else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
@@ -361,8 +417,11 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 	tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list ++;
 
 	// Insert into the collision list
-	// FIXME : Optimize the malloc with lock-free library
+#if defined(MEM_LL)
+	ptr_l = mem_alloc(SIZE_LIST_ELEM, tcp_thread_local_p->self_cpu_id);
+#else
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+#endif
 
 	// get free index from bitmap
 	// Store the TCB in collision linked list in the part above CACHE_ELEM_NUM
@@ -456,7 +515,34 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 			return 0;
 		}
 	}
+#if 1
+	uint8_t major = loc;
+	// From start to previous subset
+	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
 
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			return 0;
+		}
+	}
+	for (loc = 0; loc < major; loc ++) {
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			ptr = set_header + loc;
+			ptr->signature = 0;
+			return 0;
+		}
+	}
+#else
 	uint8_t subset = get_subset_index(sign);
 	for (loc = subset; loc < subset + 4; loc ++) {
 		if (sig_match_e(sign, set_header + loc)) {
@@ -499,6 +585,7 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 			return 0;
 		}
 	}
+#endif
 #else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
@@ -535,7 +622,11 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 				pre_l->next = ptr_l->next;
 			}
 
+#if defined(MEM_LL)
+			mem_free(ptr_l, SIZE_LIST_ELEM, tcp_thread_local_p->self_cpu_id);
+#else
 			free(ptr_l);
+#endif
 
 			return tcb_index;
 		}
@@ -591,7 +682,15 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);
+#if defined(MEM_ALIGN)
+	if (0 != posix_memalign((void **)&(tcp_thread_local_p->tcp_stream_table), 64, SET_NUMBER/(number_of_cpus_used - 1) * SET_SIZE)) {
+		printf("memalign allocation failed, exit\n");
+		exit(0);
+	}
+	memset(tcp_thread_local_p->tcp_stream_table, 0, SET_NUMBER/(number_of_cpus_used - 1) * SET_SIZE);
+#else
 	tcp_thread_local_p->tcp_stream_table = calloc(SET_NUMBER/(number_of_cpus_used - 1), SET_SIZE);
+#endif
 	if (!tcp_thread_local_p->tcp_stream_table) {
 		printf("tcp_stream_table in tcp_init");
 		exit(0);
@@ -602,17 +701,26 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	int color_range = (tcp_thread_local_p->self_cpu_id - 1) / 2;
 	cc_cacheregn_t regn;
 	cc_cacheregn_clr(&regn);
-	cc_cacheregn_set(&regn, 20 * color_range, 20 * (color_range + 1), 1);
+	cc_cacheregn_set(&regn, 40 * color_range, 40 * (color_range + 1), 1);
 	unsigned long start[1] = {(unsigned long)ULCC_ALIGN_HIGHER((unsigned long)tcp_thread_local_p->tcp_stream_table)};
 	unsigned long end[1] = {(unsigned long)ULCC_ALIGN_LOWER((unsigned long)(tcp_thread_local_p->tcp_stream_table + tcp_thread_local_p->tcp_stream_table_size))};
 	if(cc_remap(start, end, 1, &regn, 0, NULL) < 0) {
 		printf("WOWOWOWOW, cc_remap failed....... size = %d, cpu id = %d\n", tcp_thread_local_p->tcp_stream_table_size, tcp_thread_local_p->self_cpu_id);
 		exit(0);
 	}
+	printf("ULCC Allocation Success.\n");
 #endif
 
 	// The conflict Ptr list
+#if defined(MEM_ALIGN)
+	if (0 != posix_memalign((void **)&(tcp_thread_local_p->conflict_list), 64, SET_NUMBER/(number_of_cpus_used - 1) * PTR_SIZE)) {
+		printf("memalign allocation failed, exit\n");
+		exit(0);
+	}
+	memset(tcp_thread_local_p->conflict_list, 0, SET_NUMBER/(number_of_cpus_used - 1) * PTR_SIZE);
+#else
 	tcp_thread_local_p->conflict_list = calloc(SET_NUMBER/(number_of_cpus_used - 1), PTR_SIZE);
+#endif
 	if (!tcp_thread_local_p->conflict_list) {
 		printf("conflict in tcp_init");
 		exit(0);
@@ -620,7 +728,15 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	}
 
 	// The TCB array
+#if defined(MEM_ALIGN)
+	if (0 != posix_memalign((void **)&(tcp_thread_local_p->tcb_array), 64, core_elem_num * sizeof(struct tcp_stream))) {
+		printf("memalign allocation failed, exit\n");
+		exit(0);
+	}
+	memset(tcp_thread_local_p->tcb_array, 0, core_elem_num * sizeof(struct tcp_stream));
+#else
 	tcp_thread_local_p->tcb_array = calloc(core_elem_num, sizeof(struct tcp_stream));
+#endif
 	if (!tcp_thread_local_p->tcb_array) {
 		printf("tcp_array in tcp_init");
 		exit(0);
@@ -815,6 +931,8 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 
 					a_tcp->server.state = TCP_ESTABLISHED;
 					a_tcp->nids_state = NIDS_JUST_EST;
+
+#if !defined(DISABLE_UPPER_LAYER)
 					for (i = tcp_procs; i; i = i->next) {
 						char whatto = 0;
 						char cc = a_tcp->client.collect;
@@ -855,6 +973,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 						nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
 						return;
 					}
+#endif
 					a_tcp->nids_state = NIDS_DATA;
 				}
 			}

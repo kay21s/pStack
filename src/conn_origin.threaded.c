@@ -66,7 +66,7 @@ nids_free_tcp_stream(struct tcp_stream * a_tcp,TCP_THREAD_LOCAL_P  tcp_thread_lo
 	}
 	a_tcp->next_free = tcp_thread_local_p->free_streams;
 	tcp_thread_local_p->free_streams = a_tcp;
-	tcp_thread_local_p->tcp_num--;
+	tcp_test[tcp_thread_local_p->self_cpu_id].tcp_num --;
 }
 
 void
@@ -115,7 +115,13 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr,TCP_THREAD_LOCAL
 	}
 	tcp_thread_local_p->free_streams = a_tcp->next_free;
 
-	tcp_thread_local_p->tcp_num++;
+	int core = tcp_thread_local_p->self_cpu_id;
+	tcp_test[core].tcp_num ++;
+	tcp_test[core].total_tcp_num ++;
+	if (tcp_test[core].tcp_num > tcp_test[core].max_tcp_num) {
+		tcp_test[core].max_tcp_num = tcp_test[core].tcp_num;
+	}
+
 	tolink = tcp_thread_local_p->tcp_stream_table[hash_index];
 	memset(a_tcp, 0, sizeof(struct tcp_stream));
 	a_tcp->hash_index = hash_index;
@@ -205,7 +211,7 @@ tcp_exit(TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 	/* FIXME: anything else we should free? */
 	/* yes plz.. */
 	//  tcp_latest = tcp_oldest = NULL;
-	tcp_thread_local_p->tcp_num = 0;
+	// tcp_thread_local_p->tcp_num = 0;
 }
 
 int
@@ -411,6 +417,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 
 					a_tcp->server.state = TCP_ESTABLISHED;
 					a_tcp->nids_state = NIDS_JUST_EST;
+#if !defined(DISABLE_UPPER_LAYER)
 					for (i = tcp_procs; i; i = i->next) {
 						char whatto = 0;
 						char cc = a_tcp->client.collect;
@@ -451,6 +458,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 						nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
 						return;
 					}
+#endif
 					a_tcp->nids_state = NIDS_DATA;
 				}
 			}

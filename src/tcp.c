@@ -333,6 +333,7 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr)
 }
 #endif
 
+#if !defined(DISABLE_UPPER_LAYER)
 static void
 add2buf(struct half_stream * rcv, char *data, int datalen)
 {
@@ -450,6 +451,7 @@ prune_listeners:
 			i = i->next;
 		}
 }
+#endif
 
 static void
 add_from_skb(struct tcp_stream * a_tcp, struct half_stream * rcv,
@@ -898,6 +900,7 @@ process_tcp(u_char * data, int skblen)
 	  
 	  a_tcp->server.state = TCP_ESTABLISHED;
 	  a_tcp->nids_state = NIDS_JUST_EST;
+#if !defined(DISABLE_UPPER_LAYER)
 	  for (i = tcp_procs; i; i = i->next) {
 	    char whatto = 0;
 	    char cc = a_tcp->client.collect;
@@ -938,6 +941,7 @@ process_tcp(u_char * data, int skblen)
 	    nids_free_tcp_stream(a_tcp);
 	    return;
 	  }
+#endif
 	  a_tcp->nids_state = NIDS_DATA;
 	}
       }

@@ -45,20 +45,18 @@
 
 #include <sched.h>
 #include "parallel.h"
+#include "mem.h"
 
 #if defined(PARALLEL)
 
-
 extern FIFO_CTRL fifo_g[];
 extern FIFO_BUFFER buffer_g[];
-
 
 #define LOAD_BALANCE_ARRAY_SIZE 32
 
 static _IP_THREAD_LOCAL_P ip_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(64)));
 static pthread_t  ip_thread_ctrl[MAX_CPU_CORES] __attribute__((aligned(64)));
 static _TCP_THREAD_LOCAL_P tcp_thread_local_struct[MAX_CPU_CORES] __attribute__((aligned(64)));
-
 
 int cpu_id[8] = {2,4,6,1,3,5,7};
 extern int number_of_cpus_used;
@@ -311,8 +309,14 @@ static void ip_queue_process_thread(void *cpu_id)
 	tcp_thread_local_struct[thread_id].self_cpu_id = thread_id;
 	tcp_init(nids_params.n_tcp_streams, &tcp_thread_local_struct[thread_id]);
 
+#if defined(MEM_LL)
+	// Init tcp digest hash table element in conflict list
+	// Add more init here to support lock-free malloc
+	mem_init(SIZE_LIST_ELEM, 2000, sizeof(elem_list_type), thread_id);
+#endif
+
 //	printf("HEY, IAM AP : %d\n", thread_id);
-	// Synchronization point
+	// Synchronization point with IP thread
 	int rc = pthread_barrier_wait(&barr);
 	if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
 	{
@@ -485,8 +489,8 @@ static void gen_ip_frag_proc(char *data, int len, IP_THREAD_LOCAL_P ip_thread_lo
 	int need_free = 0;
 	int skblen;
 
-	if (!nids_params.ip_filter(iph, len))
-		return;
+//	if (!nids_params.ip_filter(iph, len))
+//		return;
 
 	if (len < (int)sizeof(struct ip) || iph->ip_hl < 5 || iph->ip_v != 4 ||
 			ip_fast_csum((unsigned char *) iph, iph->ip_hl) != 0 ||
@@ -801,6 +805,10 @@ int nids_init()
 
 #endif
 
+#if defined(MEM_LL)
+	init_mem_table();
+#endif
+
 	if (nids_params.pcap_filter != NULL) {
 		u_int mask = 0;
 		struct bpf_program fcode;
@@ -898,7 +906,8 @@ int nids_run()
 		return -1;
 	}
 
-	// Synchronization point
+	// Synchronization point with AP thread
+	// Calculate time after this to get stable performance statistics
 	int rc = pthread_barrier_wait(&barr);
 	if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
 	{
