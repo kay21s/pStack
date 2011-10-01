@@ -4,8 +4,9 @@
 inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uint16_t sport, const uint16_t dport)
 {
 	uint32_t port = sport ^ dport;
+	unsigned int res = 0;
 #if defined(CRC_SIGN)
-	unsigned int crc1 = 0, crc2 = 0, res;
+	unsigned int crc1 = 0, crc2 = 0;
 
 	crc1 = _mm_crc32_u32(crc1, sip);
 	crc1 = _mm_crc32_u32(crc1, dip);
@@ -19,21 +20,19 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 	// Since we set the signature of an empty slot to be zero,
 	// if the calculated signature turned to be zero, there will be a false positive,
 	// We make it a arbitrary number rather than zero.
-	if (res == 0) res = (sip + dip) ^ port;
+	if (res == 0) res = 0xFFFFFFFF;
 
 	return (sig_type)res;
 #elif defined(CRC_SIGN1)
-	unsigned int crc1 = 0, res;
-	crc1 = _mm_crc32_u32(crc1, sip ^ dip);
-	crc1 = _mm_crc32_u32(crc1, port);
+	res = _mm_crc32_u32(res, sip ^ dip);
+	res = _mm_crc32_u32(res, port);
 
-	res = crc1;
-	if (res == 0) res = (sip + dip) ^ port;
+	if (res == 0) res = 0xFFFFFFFF;
 
 	return (sig_type)res;
 
 #elif defined(CRC_SIGN2)
-	unsigned int crc1 = 0, crc2 = 0, res;
+	unsigned int crc1 = 0, crc2 = 0;
 
 	crc1 = _mm_crc32_u32(crc1, sip);
 	crc1 = _mm_crc32_u32(crc1, dip);
@@ -49,12 +48,20 @@ inline sig_type calc_signature(const uint32_t sip, const uint32_t dip, const uin
 	// Since we set the signature of an empty slot to be zero,
 	// if the calculated signature turned to be zero, there will be a false positive,
 	// We make it a arbitrary number rather than zero.
-	if (res == 0) res = (sip + dip) ^ port;
+	if (res == 0) {
+		res = sip ^ dip ^ port;
+		if (res == 0) {
+			res = 0xFFFFFFFF;
+		}
+	}
 
 	return (sig_type)res;
 
 #else
-	return sip ^ dip ^ port;
+	res = sip ^ dip ^ port;
+	if (res == 0) res = 0xFFFFFFFF;
+
+	return (sig_type)res;
 #endif
 }
 

@@ -376,7 +376,7 @@ tcp_init(int size)
 	struct tcp_timeout *tmp;
 
 	// Init bitmap
-	init_bitmap();
+	init_bitmap(CACHE_ELEM_NUM);
 
 	// The hash table
 	tcp_stream_table_size = SET_NUMBER;

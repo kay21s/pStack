@@ -75,7 +75,7 @@ int load_balance_array[8][LOAD_BALANCE_ARRAY_SIZE]={
 };
 
 #endif
-TEST_SET tcp_test[MAX_CPU_CORES] __attribute__((aligned(64)));
+TEST_SET tcp_test[MAX_CPU_CORES] __attribute__((aligned(128)));
 
 extern char trace_file[128];
 
@@ -104,6 +104,12 @@ u_int nids_linkoffset = 0;
 
 extern uint64_t tcp_proc_time;
 extern uint64_t tcp_proc_num;
+extern uint64_t ip_proc_time;
+extern uint64_t ip_proc_num;
+extern uint64_t lb_proc_time;
+extern uint64_t lb_proc_num;
+extern uint64_t fifo_proc_time;
+extern uint64_t fifo_proc_num;
 
 extern uint64_t total_packet_num;
 extern uint64_t	total_packet_len;
@@ -124,7 +130,8 @@ char *nids_warnings[] = {
 };
 
 struct nids_prm nids_params = {
-    1040,			/* n_tcp_streams */
+//    1040,			/* n_tcp_streams */
+    925000,
     256,			/* n_hosts */
     NULL,			/* device */
     NULL,			/* filename */
@@ -147,6 +154,21 @@ struct nids_prm nids_params = {
     NULL			/* pcap_desc */
 };
 
+inline uint64_t read_tsc()
+{
+	uint64_t        time;
+	uint32_t        msw, lsw;
+	__asm__         __volatile__("rdtsc\n\t"
+			"movl %%edx, %0\n\t"
+			"movl %%eax, %1\n\t"
+			:         "=r"         (msw), "=r"(lsw)
+			:
+			:         "%edx"      , "%eax");
+	time = ((uint64_t) msw << 32) | lsw;
+	return time;
+}
+
+
 static int nids_ip_filter(struct ip *x, int len)
 {
     (void)x;
@@ -156,6 +178,7 @@ static int nids_ip_filter(struct ip *x, int len)
 
 static void nids_syslog(int type, int errnum, struct ip *iph, void *data)
 {
+/*
     char saddr[20], daddr[20];
     char buf[1024];
     struct host *this_host;
@@ -223,6 +246,7 @@ static void nids_syslog(int type, int errnum, struct ip *iph, void *data)
     default:
 	syslog(nids_params.syslog_level, "Unknown warning number ?\n");
     }
+*/
 }
 
 #if defined(PARALLEL)
@@ -243,11 +267,23 @@ static void call_ip_frag_procs(void *data, bpf_u_int32 caplen)
 {
 	int res;
 	struct ip  *this_iphdr = (struct ip *) data;
+	uint64_t time1, time2;
+
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
 	u_int saddr = this_iphdr->ip_src.s_addr;
 	u_int daddr = this_iphdr->ip_dst.s_addr;
+
 	u_int xor   = saddr ^ daddr;
 	u_int sum16 = (xor & 0xFFFF) + (xor >> 16);
 	u_short ap_core_id   = load_balance(sum16);
+
+#if defined(CYCLE)
+	time2 = read_tsc();
+	lb_proc_time += (time2 - time1);
+	lb_proc_num ++;
+#endif
 
 	// FIFO ID equals to the AP core's ID, so that each AP core
 	// can use its own ID as the FIFO ID.
@@ -263,9 +299,18 @@ static void call_ip_frag_procs(void *data, bpf_u_int32 caplen)
 		FIFO_ELEM_DATA(&elem) = data;
 		FIFO_ELEM_SIZE(&elem) = caplen; 
 
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
 		do{ 
 			res = insert(&fifo_g[fifo_id], &buffer_g[fifo_id], elem);
 		} while (res < 0); 
+
+#if defined(CYCLE)
+	time2 = read_tsc();
+	fifo_proc_time += (time2 - time1);
+	fifo_proc_num ++;
+#endif
 
 	}
 
@@ -531,7 +576,11 @@ static void gen_ip_frag_proc(u_char * data, int len)
 	struct ip *iph = (struct ip *) data;
 	int need_free = 0;
 	int skblen;
+	uint64_t time1, time2;
 
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
 	if (!nids_params.ip_filter(iph, len))
 		return;
 
@@ -562,6 +611,11 @@ static void gen_ip_frag_proc(u_char * data, int len)
 	skblen = (skblen + 15) & ~15;
 	skblen += nids_params.sk_buff_size;
 
+#if defined(CYCLE)
+	time2 = read_tsc();
+	ip_proc_time += (time2 - time1);
+	ip_proc_num ++;
+#endif
 	for (i = ip_procs; i; i = i->next)
 		(i->item) (iph, skblen);
 	if (need_free)
@@ -609,20 +663,6 @@ static void process_udp(char *data)
     }
 }
 
-static inline uint64_t read_tsc()
-{
-	uint64_t        time;
-	uint32_t        msw, lsw;
-	__asm__         __volatile__("rdtsc\n\t"
-			"movl %%edx, %0\n\t"
-			"movl %%eax, %1\n\t"
-			:         "=r"         (msw), "=r"(lsw)
-			:
-			:         "%edx"      , "%eax");
-	time = ((uint64_t) msw << 32) | lsw;
-	return time;
-}
-
 #if defined(PARALLEL)
 static void gen_ip_proc(u_char * data, int skblen, int cpu_id)
 {
@@ -652,11 +692,15 @@ static void gen_ip_proc(u_char * data, int skblen)
 	uint64_t time1, time2;
 	switch (((struct ip *) data)->ip_p) {
 		case IPPROTO_TCP:
+#if defined(CYCLE)
 			time1 = read_tsc();
+#endif
 			process_tcp(data, skblen);
+#if defined(CYCLE)
 			time2 = read_tsc();
 			tcp_proc_time += (time2 - time1);
 			tcp_proc_num ++;
+#endif
 			break;
 /* Ignore UDP and ICMP
 		case IPPROTO_UDP:

@@ -5,6 +5,6 @@
 
 idx_type get_free_index(void);
 void ret_free_index(idx_type);
-void init_bitmap(void);
+void init_bitmap(int);
 
 #endif

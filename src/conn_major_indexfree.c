@@ -12,8 +12,8 @@
 
 #if defined(MAJOR_INDEXFREE_TCP)
 
-#define SET_NUMBER 80000 //0.08 Million buckets = 1.28 Million Elem
-#define CACHE_ELEM_NUM 1280000 // element number stored in cache, 80000 * 16
+#define SET_NUMBER 100000 //0.1 Million buckets = 1.6 Million Elem
+#define CACHE_ELEM_NUM 1600000 // element number stored in cache, 100000 * 16
 
 extern int conflict_into_list;
 extern int false_positive;
@@ -126,12 +126,21 @@ int is_false_positive(struct tuple4 addr, idx_type tcb_index)
 
 // This can be altered to better algorithm, 
 // four bits for indexing 16 way-associative
+#if defined(HASH_MAJOR)
+static inline uint8_t 
+get_major_location(uint32_t hash_index)
+{
+	// the least significant 4 bits
+	return hash_index & 0x0f;
+}
+#else
 static inline uint8_t 
 get_major_location(sig_type sign)
 {
-	// the least significant 3 bits
-	return sign & 0x0f;
+	// the least significant 4 bits
+	return (sign & 0x0f) ^ ((sign & 0x0f0000) >> 16);
 }
+#endif
 
 // Here the 16 set-associative array is divided into 4 subsets
 // Use the 3rd and 4th bits as the subset index
@@ -167,7 +176,12 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
 
 #if defined(MAJOR_LOCATION)
+
+#if defined(HASH_MAJOR)
+	uint8_t loc = get_major_location(hash_index);
+#else
 	uint8_t loc = get_major_location(sign);
+#endif
 	search_num ++;
 
 	// Search the Major location first
@@ -185,30 +199,14 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 			return &tcb_array[tcb_index];
 		}
 	}
+	
+	// From Major Location to End
+	for (ptr = set_header + loc + 1, i = loc + 1;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
 
-	// Search the Subset of the Major location
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index)) continue;
-
-			if (addr.source == tcb_array[tcb_index].addr.source)
-				*from_client = 1;
-			else
-				*from_client = 0;
-
-			search_set_hit_num ++;
-			return &tcb_array[tcb_index];
-		}
-	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
+		if (sig_match_e(sign, ptr)) {
+			tcb_index = calc_index(hash_index, i);
 
 			// False positive test
 			if (is_false_positive(addr, tcb_index)) continue;
@@ -222,10 +220,13 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client)
 		}
 	}
 
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
+	// From Start to Major Location
+	for (ptr = set_header, i = 0;
+		i < loc;
+		i ++, ptr ++) {
+
+		if (sig_match_e(sign, ptr)) {
+			tcb_index = calc_index(hash_index, i);
 
 			// False positive test
 			if (is_false_positive(addr, tcb_index)) continue;
@@ -300,7 +301,13 @@ static idx_type add_into_cache(struct tuple4 addr)
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
 
 #if defined(MAJOR_LOCATION)
+
+#if defined(HASH_MAJOR)
+	uint8_t loc = get_major_location(hash_index);
+#else
 	uint8_t loc = get_major_location(sign);
+#endif
+
 	add_num ++;
 	if (sig_match_e(0, set_header + loc)) {
 		ptr = set_header + loc;
@@ -309,33 +316,22 @@ static idx_type add_into_cache(struct tuple4 addr)
 		return calc_index(hash_index, loc);
 	}
 
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
+	for (ptr = set_header + loc + 1, i = loc + 1;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-			add_set_hit_num ++;
-			return calc_index(hash_index, loc);
+			return calc_index(hash_index, i);
 		}
 	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
+	for (ptr = set_header, i = 0;
+		i < loc;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(0, ptr)) {
 			ptr->signature = sign;
-			add_set_hit_num ++;
-			return calc_index(hash_index, loc);
-		}
-	}
-
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
-			ptr->signature = sign;
-			add_set_hit_num ++;
-			return calc_index(hash_index, loc);
+			return calc_index(hash_index, i);
 		}
 	}
 #else
@@ -429,8 +425,15 @@ delete_from_cache(struct tcp_stream *a_tcp)
 	elem_type *set_header = (elem_type *)&(((char *)tcp_stream_table)[hash_index * SET_SIZE]);
 
 #if defined(MAJOR_LOCATION)
+
+#if defined(HASH_MAJOR)
+	uint8_t loc = get_major_location(hash_index);
+#else
 	uint8_t loc = get_major_location(sign);
+#endif
+
 	delete_num ++;
+
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = calc_index(hash_index, loc);
 
@@ -443,47 +446,31 @@ delete_from_cache(struct tcp_stream *a_tcp)
 		}
 	}
 
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
+	for (ptr = set_header + loc + 1, i = loc + 1;
+		i < SET_ASSOCIATIVE;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(sign, ptr)) {
+			tcb_index = calc_index(hash_index, i);
 
 			// False positive test
 			if (is_false_positive(addr, tcb_index)) continue;
 
-			ptr = set_header + loc;
 			ptr->signature = 0;
-			delete_set_hit_num ++;
 			return 0;
 		}
 	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index)) continue;
-
-			ptr = set_header + loc;
-			ptr->signature = 0;
-			delete_set_hit_num ++;
-			return 0;
-		}
-	}
-
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
+	for (ptr = set_header, i = 0;
+		i < loc;
+		i ++, ptr ++) {
+		
+		if (sig_match_e(sign, ptr)) {
+			tcb_index = calc_index(hash_index, i);
 
 			// False positive test
 			if (is_false_positive(addr, tcb_index)) continue;
 
-			ptr = set_header + loc;
 			ptr->signature = 0;
-			delete_set_hit_num ++;
 			return 0;
 		}
 	}
@@ -571,7 +558,7 @@ tcp_init(int size)
 	struct tcp_timeout *tmp;
 
 	// Init bitmap
-	init_bitmap();
+	init_bitmap(CACHE_ELEM_NUM);
 
 	// The hash table
 	tcp_stream_table_size = SET_NUMBER;
@@ -626,6 +613,8 @@ tcp_exit(void)
 	return;
 }
 
+uint64_t total_num = 0;
+
 void
 process_tcp(u_char * data, int skblen)
 {
@@ -637,6 +626,7 @@ process_tcp(u_char * data, int skblen)
 	struct tcp_stream *a_tcp;
 	struct half_stream *snd, *rcv;
 
+ 	total_num += tcp_num;
 #if 0
 	static int a=0;
 	a++;
@@ -865,7 +855,9 @@ process_tcp(u_char * data, int skblen)
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp);
+#endif
 }
 #endif

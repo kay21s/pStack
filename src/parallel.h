@@ -51,13 +51,15 @@ typedef struct test_set {
 	uint32_t false_positive;
 
 	// For Major Location
-	uint32_t search_num, search_hit_num, search_set_hit_num;
-	uint32_t add_num, add_hit_num, add_set_hit_num;
-	uint32_t delete_num, delete_hit_num, delete_set_hit_num;
+	uint32_t search_num, search_hit_num;
+	uint32_t add_num, add_hit_num;
+	uint32_t delete_num, delete_hit_num;
 	uint32_t not_found;
 	uint32_t tcp_num;
 	uint32_t total_tcp_num;
 	uint32_t max_tcp_num;
-} __attribute__ ((aligned (64))) TEST_SET;
+	uint32_t step;
+	uint32_t a, b;
+} __attribute__ ((aligned (128))) TEST_SET;
 
 #endif

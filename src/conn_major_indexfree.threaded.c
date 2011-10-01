@@ -18,9 +18,15 @@
 
 #if defined(MAJOR_INDEXFREE_TCP)
 
+#if 0
+#define SET_NUMBER 200000 
+#define TOTAL_CACHE_ELEM_NUM 3200000
+#define CACHE_ELEM_NUM (3200000 / (number_of_cpus_used - 1)) // element number stored in cache
+#else
 #define SET_NUMBER 100000 //0.1 Million buckets = 1.6 Million Elem
 #define TOTAL_CACHE_ELEM_NUM 1600000
 #define CACHE_ELEM_NUM (1600000 / (number_of_cpus_used - 1)) // element number stored in cache, 100000 * 16
+#endif
 
 extern TEST_SET tcp_test[MAX_CPU_CORES];
 
@@ -53,9 +59,11 @@ int is_false_positive(struct tuple4 addr, idx_type tcb_index, TCP_THREAD_LOCAL_P
 		addr.saddr == tcb_p->addr.daddr ))) {
 
 		// Yes, it is false positive
+#if defined(DEBUG)
 		tcp_test[tcp_thread_local_p->self_cpu_id].false_positive ++;
+#endif
 
-#if 1		
+#if 0		
 		int sign2 = calc_signature(
 				tcb_p->addr.saddr,
 				tcb_p->addr.daddr,
@@ -140,8 +148,8 @@ mk_hash_index(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 static inline uint8_t 
 get_major_location(sig_type sign)
 {
-	// the least significant 3 bits
-	return sign & 0x0f;
+	// the least significant 4 bits
+	return (sign & 0x0f) ^ ((sign & 0x0f0000) >> 16);
 }
 
 // Here the 16 set-associative array is divided into 4 subsets
@@ -177,9 +185,16 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	// Search the cache
 	elem_type *set_header = (elem_type *)&(((char *)tcp_thread_local_p->tcp_stream_table)[hash_index * SET_SIZE]);
 
+#if defined(DEBUG)
+	tcp_test[tcp_thread_local_p->self_cpu_id].search_num ++;
+#endif
+
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
-	tcp_test[tcp_thread_local_p->self_cpu_id].search_num ++;
+
+#if defined(DEBUG)
+	tcp_test[tcp_thread_local_p->self_cpu_id].step ++;
+#endif
 
 	// Search the Major location first
 	if (sig_match_e(sign, set_header + loc)) {
@@ -192,15 +207,19 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 			else
 				*from_client = 0;
 
+#if defined(DEBUG)
 			tcp_test[tcp_thread_local_p->self_cpu_id].search_hit_num ++;
+#endif
 			return &(tcp_thread_local_p->tcb_array)[tcb_index];
 		}
 	}
 
-#if 1
 	uint8_t major = loc;
 	// From start to previous subset
 	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
+#if defined(DEBUG)
+		tcp_test[tcp_thread_local_p->self_cpu_id].step ++;
+#endif
 		if (sig_match_e(sign, set_header + loc)) {
 			tcb_index = calc_index(hash_index, loc);
 
@@ -216,79 +235,32 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 		}
 	}
 	for (loc = 0; loc < major; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
-				*from_client = 1;
-			else
-				*from_client = 0;
-
-			return &(tcp_thread_local_p->tcb_array)[tcb_index];
-		}
-	}
-#else
-	// Search the Subset of the Major location
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
-				*from_client = 1;
-			else
-				*from_client = 0;
-
-			tcp_test[tcp_thread_local_p->self_cpu_id].search_set_hit_num ++;
-			return &(tcp_thread_local_p->tcb_array)[tcb_index];
-		}
-	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
-				*from_client = 1;
-			else
-				*from_client = 0;
-
-			return &(tcp_thread_local_p->tcb_array)[tcb_index];
-		}
-	}
-
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
-				*from_client = 1;
-			else
-				*from_client = 0;
-
-			return &(tcp_thread_local_p->tcb_array)[tcb_index];
-		}
-	}
+#if defined(DEBUG)
+		tcp_test[tcp_thread_local_p->self_cpu_id].step ++;
 #endif
+		if (sig_match_e(sign, set_header + loc)) {
+			tcb_index = calc_index(hash_index, loc);
+
+			// False positive test
+			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
+
+			if (addr.source == tcp_thread_local_p->tcb_array[tcb_index].addr.source)
+				*from_client = 1;
+			else
+				*from_client = 0;
+
+			return &(tcp_thread_local_p->tcb_array)[tcb_index];
+		}
+	}
 #else
 
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
+		
+#if defined(DEBUG)
+		tcp_test[tcp_thread_local_p->self_cpu_id].step ++;
+#endif
 		
 		if (sig_match_e(sign, ptr)) {
 			tcb_index = calc_index(hash_index, i);
@@ -310,6 +282,9 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	for (ptr_l = tcp_thread_local_p->conflict_list[hash_index];
 		ptr_l != NULL;
 		ptr_l = ptr_l->next) {
+#if defined(DEBUG)
+		tcp_test[tcp_thread_local_p->self_cpu_id].step ++;
+#endif
 		
 		if (sig_match_l(sign, ptr_l)) {
 
@@ -326,7 +301,9 @@ find_stream(struct tcphdr *this_tcphdr, struct ip *this_iphdr, int *from_client,
 	}
 
 	// Not found
+#if defined(DEBUG)
 	tcp_test[tcp_thread_local_p->self_cpu_id].not_found ++;
+#endif
 	return NULL;
 }
 
@@ -347,15 +324,19 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
+
+#if defined(DEBUG)
 	tcp_test[tcp_thread_local_p->self_cpu_id].add_num ++;
+#endif
 	if (sig_match_e(0, set_header + loc)) {
 		ptr = set_header + loc;
 		ptr->signature = sign;
+#if defined(DEBUG)
 		tcp_test[tcp_thread_local_p->self_cpu_id].add_hit_num ++;
+#endif
 		return calc_index(hash_index, loc);
 	}
 
-#if 1
 	uint8_t major = loc;
 	// From start to previous subset
 	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
@@ -374,35 +355,6 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 		}
 	}
 #else
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
-			ptr->signature = sign;
-			tcp_test[tcp_thread_local_p->self_cpu_id].add_set_hit_num ++;
-			return calc_index(hash_index, loc);
-		}
-	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
-			ptr->signature = sign;
-			return calc_index(hash_index, loc);
-		}
-	}
-
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(0, set_header + loc)) {
-			ptr = set_header + loc;
-			ptr->signature = sign;
-			return calc_index(hash_index, loc);
-		}
-	}
-#endif
-#else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
 		i ++, ptr ++) {
@@ -414,7 +366,9 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 	}
 #endif
 
+#if defined(DEBUG)
 	tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list ++;
+#endif
 
 	// Insert into the collision list
 #if defined(MEM_LL)
@@ -451,11 +405,13 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 	addr.daddr = this_iphdr->ip_dst.s_addr;
 
 	core = tcp_thread_local_p->self_cpu_id;
+#if defined(DEBUG)
 	tcp_test[core].tcp_num ++;
 	tcp_test[core].total_tcp_num ++;
 	if (tcp_test[core].tcp_num > tcp_test[core].max_tcp_num) {
 		tcp_test[core].max_tcp_num = tcp_test[core].tcp_num;
 	}
+#endif
 
 	// add the index into hash cache
 	index = add_into_cache(addr, tcp_thread_local_p);
@@ -469,8 +425,6 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 
 	// fill the tcp block
 	memset(a_tcp, 0, sizeof(struct tcp_stream));
-	if (addr.saddr == 0 || addr.daddr == 0)
-		printf("IP equals to zero !!!!!\n");
 	a_tcp->addr = addr;
 	a_tcp->client.state = TCP_SYN_SENT;
 	a_tcp->client.seq = ntohl(this_tcphdr->th_seq) + 1;
@@ -503,7 +457,10 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 
 #if defined(MAJOR_LOCATION)
 	uint8_t loc = get_major_location(sign);
+	
+#if defined(DEBUG)
 	tcp_test[tcp_thread_local_p->self_cpu_id].delete_num ++;
+#endif
 	if (sig_match_e(sign, set_header + loc)) {
 		tcb_index = calc_index(hash_index, loc);
 
@@ -511,11 +468,13 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 		if (!is_false_positive(addr, tcb_index, tcp_thread_local_p)) {
 			ptr = set_header + loc;
 			ptr->signature = 0;
+#if defined(DEBUG)
 			tcp_test[tcp_thread_local_p->self_cpu_id].delete_hit_num ++;
+#endif
 			return 0;
 		}
 	}
-#if 1
+
 	uint8_t major = loc;
 	// From start to previous subset
 	for (loc = major; loc < SET_ASSOCIATIVE; loc ++) {
@@ -542,50 +501,6 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 			return 0;
 		}
 	}
-#else
-	uint8_t subset = get_subset_index(sign);
-	for (loc = subset; loc < subset + 4; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			ptr = set_header + loc;
-			ptr->signature = 0;
-			tcp_test[tcp_thread_local_p->self_cpu_id].delete_set_hit_num ++;
-			return 0;
-		}
-	}
-
-	// From next subset to the end
-	for (loc = subset + 4; loc < SET_ASSOCIATIVE; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			ptr = set_header + loc;
-			ptr->signature = 0;
-			return 0;
-		}
-	}
-
-	// From start to previous subset
-	for (loc = 0; loc < subset; loc ++) {
-		if (sig_match_e(sign, set_header + loc)) {
-			tcb_index = calc_index(hash_index, loc);
-
-			// False positive test
-			if (is_false_positive(addr, tcb_index, tcp_thread_local_p)) continue;
-
-			ptr = set_header + loc;
-			ptr->signature = 0;
-			return 0;
-		}
-	}
-#endif
 #else
 	for (ptr = set_header, i = 0;
 		i < SET_ASSOCIATIVE;
@@ -658,7 +573,9 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_loc
 		free(i);
 		i = j;
 	}
+#if defined(DEBUG)
 	tcp_test[tcp_thread_local_p->self_cpu_id].tcp_num --;
+#endif
 
 	tcb_index = delete_from_cache(a_tcp, tcp_thread_local_p);
 	if (tcb_index >= cache_elem_num) {
@@ -675,6 +592,8 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 
 	// Init bitmap
 	init_bitmap(tcp_thread_local_p, TOTAL_CACHE_ELEM_NUM);
+
+	memset(tcp_test, 0, MAX_CPU_CORES * sizeof(struct test_set));
 
 	// Init cache element number
 	cache_elem_num = (SET_NUMBER * SET_ASSOCIATIVE) / (number_of_cpus_used - 1);
@@ -703,12 +622,11 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	cc_cacheregn_clr(&regn);
 	cc_cacheregn_set(&regn, 40 * color_range, 40 * (color_range + 1), 1);
 	unsigned long start[1] = {(unsigned long)ULCC_ALIGN_HIGHER((unsigned long)tcp_thread_local_p->tcp_stream_table)};
-	unsigned long end[1] = {(unsigned long)ULCC_ALIGN_LOWER((unsigned long)(tcp_thread_local_p->tcp_stream_table + tcp_thread_local_p->tcp_stream_table_size))};
+	unsigned long end[1] = {(unsigned long)ULCC_ALIGN_LOWER((unsigned long)(tcp_thread_local_p->tcp_stream_table + 64 * tcp_thread_local_p->tcp_stream_table_size))};
 	if(cc_remap(start, end, 1, &regn, 0, NULL) < 0) {
 		printf("WOWOWOWOW, cc_remap failed....... size = %d, cpu id = %d\n", tcp_thread_local_p->tcp_stream_table_size, tcp_thread_local_p->self_cpu_id);
 		exit(0);
 	}
-	printf("ULCC Allocation Success.\n");
 #endif
 
 	// The conflict Ptr list
@@ -1001,7 +919,9 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
+#endif
 }
 #endif

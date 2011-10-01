@@ -6,9 +6,9 @@
 #define BITSPERWORD 64
 #define SHIFT 6
 #define MASK 0x3F
-#define BITMAP_SIZE (1 + MAX_STREAM / BITSPERWORD)
 
-uint64_t bitmap[BITMAP_SIZE];
+uint64_t *bitmap;
+int bitmap_size;
 
 extern int tcp_num;
 
@@ -60,9 +60,15 @@ idx_type find_free_index()
 inline void clr(int i) { bitmap[i>>SHIFT] |= ((uint64_t)1 << (i & MASK));}
 inline void set(int i) { bitmap[i>>SHIFT] &= ~((uint64_t)1 << (i & MASK));}
 
-void init_bitmap(void)
+void init_bitmap(int cache_elem_num)
 {
-	memset((void *)bitmap, 0xFF, BITMAP_SIZE * 8);
+	bitmap_size = (MAX_STREAM - cache_elem_num) / BITSPERWORD;
+	bitmap = calloc(bitmap_size, sizeof(uint64_t));
+	if (!bitmap) {
+		printf("Error allocating bitmap!\n");
+		exit(0);
+	}
+	memset((void *)bitmap, 0xFF, bitmap_size * 8);
 }
 
 // If a bit is 0, it represents that this block is in use
@@ -73,7 +79,7 @@ idx_type find_free_index()
 
 	static uint32_t walker = -1;
 	walker ++;
-	if (walker == BITMAP_SIZE)
+	if (walker == bitmap_size)
 		walker = 0;
 
 	// this word has no bits free, continue

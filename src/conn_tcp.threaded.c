@@ -716,7 +716,9 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
+#endif
 }
 #endif

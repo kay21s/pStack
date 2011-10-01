@@ -61,9 +61,13 @@ extern int max_tcp_num;
 extern int total_tcp_num;
 int tcp_stream_table_size;
 
+extern uint64_t tcb_proc_time;
+extern uint64_t tcb_proc_num;
+
 static struct ip *ugly_iphdr;
 struct tcp_timeout *nids_tcp_timeouts = 0;
 
+extern inline uint64_t read_tsc();
 void purge_queue(struct half_stream * h)
 {
 	struct skbuff *tmp, *p = h->list;
@@ -752,13 +756,7 @@ process_tcp(u_char * data, int skblen)
   unsigned int tmp_ts;
   struct tcp_stream *a_tcp;
   struct half_stream *snd, *rcv;
-
-#if 0
-	static int a=0;
-	a++;
-	if (a % 50000 == 0)
-	printf(" %d \n", a);
-#endif
+  uint64_t time1, time2;
 
   ugly_iphdr = this_iphdr;
   iplen = ntohs(this_iphdr->ip_len);
@@ -813,13 +811,27 @@ process_tcp(u_char * data, int skblen)
   check_flags(this_iphdr, this_tcphdr);
 //ECN
 #endif
+
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
   if (!(a_tcp = find_stream(this_tcphdr, this_iphdr, &from_client))) {
     if ((this_tcphdr->th_flags & TH_SYN) &&
 	!(this_tcphdr->th_flags & TH_ACK) &&
 	!(this_tcphdr->th_flags & TH_RST))
       add_new_tcp(this_tcphdr, this_iphdr);
+#if defined(CYCLE)
+	time2 = read_tsc();
+	tcb_proc_time += (time2 - time1);
+	tcb_proc_num ++;
+#endif
     return;
   }
+#if defined(CYCLE)
+	time2 = read_tsc();
+	tcb_proc_time += (time2 - time1);
+	tcb_proc_num ++;
+#endif
 
   if (from_client) {
     snd = &a_tcp->client;
@@ -878,7 +890,14 @@ process_tcp(u_char * data, int skblen)
       for (i = a_tcp->listeners; i; i = i->next)
 	(i->item) (a_tcp, &i->data);
     }
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
     nids_free_tcp_stream(a_tcp);
+#if defined(CYCLE)
+	time2 = read_tsc();
+	tcb_proc_time += (time2 - time1);
+#endif
     return;
   }
 
@@ -958,7 +977,14 @@ process_tcp(u_char * data, int skblen)
       a_tcp->nids_state = NIDS_CLOSE;
       for (i = a_tcp->listeners; i; i = i->next)
 	(i->item) (a_tcp, &i->data);
+#if defined(CYCLE)
+	time1 = read_tsc();
+#endif
       nids_free_tcp_stream(a_tcp);
+#if defined(CYCLE)
+	time2 = read_tsc();
+	tcb_proc_time += (time2 - time1);
+#endif
       return;
     }
   }
@@ -969,8 +995,10 @@ process_tcp(u_char * data, int skblen)
   snd->window = ntohs(this_tcphdr->th_win);
   if (rcv->rmem_alloc > 65535)
     prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
   if (!a_tcp->listeners)
     nids_free_tcp_stream(a_tcp);
+#endif
 }
 #endif
 

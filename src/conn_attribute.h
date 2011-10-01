@@ -7,7 +7,7 @@
 #define PTR_SIZE 8
 #define SET_SIZE CACHE_LINE_SIZE
 
-#define MAX_STREAM 2000000
+#define MAX_STREAM 4000000
 
 #if defined(INDEXFREE_TCP)
 // 14-way set associative, only store signature in cache table

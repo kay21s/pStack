@@ -19,7 +19,7 @@
 #include <string.h>
 #include "mem.h"
 
-#define PERF_CODING 1
+#define PERF_CODING 0
 #if defined(PERF_CODING)
 #  define PERF_PRINT(fmt, args...) printf("%s:%d: " fmt, __FUNCTION__ , __LINE__ , ## args)
 #elif defined(PERF_DEBUG)
@@ -132,7 +132,7 @@ void mem_init(int size_type, int block_num, int size, int cpu_id)
 static void mem_realloc(int size_type, int cpu_id)
 {
 	int i, size = size_table[size_type], block_num = num_table[size_type];
-	PERF_PRINT("SIZE_REALLOC: size is %d, block_num is \n", size);
+//	PERF_PRINT("SIZE_REALLOC: size is %d, block_num is \n", size);
 	if (mem_table[cpu_id][size_type] != NULL)
 		return;
 	

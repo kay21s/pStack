@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <nmmintrin.h>
 #include "nids.h"
 #include "util.h"
 #include "tcp.threaded.h"
@@ -28,8 +29,16 @@ extern void prune_queue(struct half_stream *, struct tcphdr *);
 u_int
 mk_hash_index(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
-  u_int hash = addr.saddr ^ addr.source ^ addr.daddr ^ addr.dest;
-  return hash % tcp_thread_local_p->tcp_stream_table_size;
+#if defined(CRC_HASH)
+	unsigned int crc1 = 0;
+	uint32_t port = addr.source ^ addr.dest;
+	crc1 = _mm_crc32_u32(crc1, addr.saddr ^ addr.daddr);
+	crc1 = _mm_crc32_u32(crc1, port);
+	return crc1 % tcp_thread_local_p->tcp_stream_table_size;
+#else
+	u_int hash = addr.saddr ^ addr.source ^ addr.daddr ^ addr.dest;
+	return hash % tcp_thread_local_p->tcp_stream_table_size;
+#endif
 }
 
 void
@@ -37,6 +46,8 @@ nids_free_tcp_stream(struct tcp_stream * a_tcp,TCP_THREAD_LOCAL_P  tcp_thread_lo
 {
 	int hash_index = a_tcp->hash_index;
 	struct lurker_node *i, *j;
+
+	tcp_test[tcp_thread_local_p->self_cpu_id].delete_num ++;
 
 	del_tcp_closing_timeout(a_tcp,tcp_thread_local_p);
 	purge_queue(&a_tcp->server);
@@ -77,8 +88,10 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr,TCP_THREAD_LOCAL
 	int hash_index;
 	struct tuple4 addr;
 
-	addr.source = this_tcphdr->th_sport;
-	addr.dest = this_tcphdr->th_dport;
+	tcp_test[tcp_thread_local_p->self_cpu_id].add_num ++;
+
+	addr.source = ntohs(this_tcphdr->th_sport);
+	addr.dest = ntohs(this_tcphdr->th_dport);
 	addr.saddr = this_iphdr->ip_src.s_addr;
 	addr.daddr = this_iphdr->ip_dst.s_addr;
 	hash_index = mk_hash_index(addr, tcp_thread_local_p);
@@ -147,6 +160,7 @@ add_new_tcp(struct tcphdr * this_tcphdr, struct ip * this_iphdr,TCP_THREAD_LOCAL
 	tcp_thread_local_p->tcp_latest = a_tcp;
 }
 
+/*
 struct tcp_stream *
 find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
 			            int *from_client, TCP_THREAD_LOCAL_P  tcp_thread_local_p) {
@@ -181,6 +195,52 @@ find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
 		}
 	}
 	return NULL;
+}
+*/
+
+struct tcp_stream *
+nids_find_tcp_stream(struct tuple4 *addr, TCP_THREAD_LOCAL_P tcp_thread_local_p)
+{
+	int hash_index;
+	struct tcp_stream *a_tcp;
+
+	hash_index = mk_hash_index(*addr, tcp_thread_local_p);
+	for (a_tcp = tcp_thread_local_p->tcp_stream_table[hash_index];
+			a_tcp && memcmp(&a_tcp->addr, addr, sizeof (struct tuple4));
+			a_tcp = a_tcp->next_node);
+	return a_tcp ? a_tcp : 0;
+}
+
+struct tcp_stream *
+find_stream(struct tcphdr * this_tcphdr, struct ip * this_iphdr,
+	    int *from_client, TCP_THREAD_LOCAL_P tcp_thread_local_p)
+{
+	struct tuple4 this_addr, reversed;
+	struct tcp_stream *a_tcp;
+
+	tcp_test[tcp_thread_local_p->self_cpu_id].search_num ++;
+
+	this_addr.source = ntohs(this_tcphdr->th_sport);
+	this_addr.dest = ntohs(this_tcphdr->th_dport);
+	this_addr.saddr = this_iphdr->ip_src.s_addr;
+	this_addr.daddr = this_iphdr->ip_dst.s_addr;
+	a_tcp = nids_find_tcp_stream(&this_addr, tcp_thread_local_p);
+	if (a_tcp) {
+		*from_client = 1;
+		return a_tcp;
+	}
+	reversed.source = ntohs(this_tcphdr->th_dport);
+	reversed.dest = ntohs(this_tcphdr->th_sport);
+	reversed.saddr = this_iphdr->ip_dst.s_addr;
+	reversed.daddr = this_iphdr->ip_src.s_addr;
+	a_tcp = nids_find_tcp_stream(&reversed, tcp_thread_local_p);
+	if (a_tcp) {
+		*from_client = 0;
+		return a_tcp;
+	}
+
+	tcp_test[tcp_thread_local_p->self_cpu_id].not_found ++;
+	return 0;
 }
 
 void
@@ -417,6 +477,7 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 
 					a_tcp->server.state = TCP_ESTABLISHED;
 					a_tcp->nids_state = NIDS_JUST_EST;
+
 #if !defined(DISABLE_UPPER_LAYER)
 					for (i = tcp_procs; i; i = i->next) {
 						char whatto = 0;
@@ -486,8 +547,9 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
+#endif
 }
-
 #endif

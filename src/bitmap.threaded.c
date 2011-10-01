@@ -75,8 +75,8 @@ void init_bitmap(TCP_THREAD_LOCAL_P tcp_thread_local_p, int cache_elem_num)
 	tcp_thread_local_p->walker = -1;
 }
 
-// If a bit is 1, it represents that this block is in use
-// if is 0, the block is free.
+// If a bit is 0, it represents that this block is in use
+// if is 1, the block is free.
 idx_type find_free_index(TCP_THREAD_LOCAL_P tcp_thread_local_p)
 {
 	uint32_t j;

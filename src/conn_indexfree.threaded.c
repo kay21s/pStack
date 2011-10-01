@@ -4,24 +4,37 @@
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <nmmintrin.h>
 #include "nids.h"
 #include "util.h"
 #include "bitmap.threaded.h"
 #include "conn_indexfree.threaded.h"
 #include "tcp.threaded.h"
 #include "parallel.h"
-#include  <nmmintrin.h>
+#include "mem.h"
+
+#include "../ulcc-0.1.0/src/ulcc.h"
+#include "../ulcc-0.1.0/src/remapper.h"
 
 #if defined(INDEXFREE_TCP)
 
+#if 1
+#define SET_NUMBER 200000 //0.1 Million buckets = 1.4 Million Elem
+#define TOTAL_CACHE_ELEM_NUM 3200000
+#define CACHE_ELEM_NUM (3200000 / (number_of_cpus_used - 1)) // element number stored in cache
+#else
 #define SET_NUMBER 100000 //0.1 Million buckets = 1.4 Million Elem
 #define TOTAL_CACHE_ELEM_NUM 1400000
 #define CACHE_ELEM_NUM (1400000 / (number_of_cpus_used - 1)) // element number stored in cache
+#endif
 
 extern TEST_SET tcp_test[MAX_CPU_CORES];
 
 extern int number_of_cpus_used;
 extern struct proc_node *tcp_procs;
+
+static int cache_elem_num;
+static int core_elem_num;
 
 extern int get_ts(struct tcphdr *, unsigned int *);
 extern int get_wscale(struct tcphdr *, unsigned int *);
@@ -224,15 +237,19 @@ static idx_type add_into_cache(struct tuple4 addr, TCP_THREAD_LOCAL_P tcp_thread
 	}
 
 	tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list ++;
+
 	// Insert into the collision list
-	// FIXME : Optimize the malloc with lock-free library
+#if defined(MEM_LL)
+	ptr_l = mem_alloc(SIZE_LIST_ELEM, tcp_thread_local_p->self_cpu_id);
+#else
 	ptr_l = (elem_list_type *)malloc(sizeof(elem_list_type));
+#endif
 
 	// get free index from bitmap
 	// Store the TCB in collision linked list in the part above CACHE_ELEM_NUM
 	// in TCB array.
-	tcb_index = get_free_index(tcp_thread_local_p) + CACHE_ELEM_NUM;
-	if (tcb_index > MAX_STREAM/(number_of_cpus_used - 1)) {
+	tcb_index = get_free_index(tcp_thread_local_p) + cache_elem_num;
+	if (tcb_index > core_elem_num) {
 		printf("ERROR IN INDEX ALLOCATING\n");
 		exit(0);
 	}
@@ -268,7 +285,7 @@ add_new_tcp(struct tcphdr *this_tcphdr, struct ip *this_iphdr, TCP_THREAD_LOCAL_
 
 	// add the index into hash cache
 	index = add_into_cache(addr, tcp_thread_local_p);
-	if (index >= MAX_STREAM/(number_of_cpus_used - 1)) {
+	if (index >= core_elem_num) {
 		printf("Too many conflict into list, index = %d, conflict into list = %d\n", index, tcp_test[tcp_thread_local_p->self_cpu_id].conflict_into_list);
 		exit(0);
 	}
@@ -342,7 +359,11 @@ delete_from_cache(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_local_
 				pre_l->next = ptr_l->next;
 			}
 
+#if defined(MEM_LL)
+			mem_free(ptr_l, SIZE_LIST_ELEM, tcp_thread_local_p->self_cpu_id);
+#else
 			free(ptr_l);
+#endif
 
 			return tcb_index;
 		}
@@ -377,8 +398,8 @@ nids_free_tcp_stream(struct tcp_stream *a_tcp, TCP_THREAD_LOCAL_P tcp_thread_loc
 	tcp_test[tcp_thread_local_p->self_cpu_id].tcp_num --;
 
 	tcb_index = delete_from_cache(a_tcp, tcp_thread_local_p);
-	if (tcb_index >= CACHE_ELEM_NUM) {
-		ret_free_index(tcb_index - CACHE_ELEM_NUM, tcp_thread_local_p);
+	if (tcb_index >= cache_elem_num) {
+		ret_free_index(tcb_index - cache_elem_num, tcp_thread_local_p);
 	}
 	return;
 }
@@ -389,7 +410,12 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 	int i;
 	struct tcp_timeout *tmp;
 
+	// Init bitmap
 	init_bitmap(tcp_thread_local_p, TOTAL_CACHE_ELEM_NUM);
+
+	// Init cache element number
+	cache_elem_num = (SET_NUMBER * SET_ASSOCIATIVE) / (number_of_cpus_used - 1);
+	core_elem_num = MAX_STREAM/(number_of_cpus_used - 1);
 
 	// The hash table
 	tcp_thread_local_p->tcp_stream_table_size = SET_NUMBER/(number_of_cpus_used - 1);
@@ -407,6 +433,23 @@ tcp_init(int size, TCP_THREAD_LOCAL_P tcp_thread_local_p)
 		exit(0);
 		return -1;
 	}
+
+#if defined(USE_ULCC)
+	int color_range = (tcp_thread_local_p->self_cpu_id - 1) / 2;
+	cc_cacheregn_t regn;
+	cc_cacheregn_clr(&regn);
+	cc_cacheregn_set(&regn, 150 * color_range, 150 * (color_range + 1), 1);
+	unsigned long start[1] = {(unsigned long)ULCC_ALIGN_HIGHER((unsigned long)tcp_thread_local_p->tcp_stream_table)};
+	unsigned long end[1] = {(unsigned long)ULCC_ALIGN_LOWER((unsigned long)(tcp_thread_local_p->tcp_stream_table + 64 * tcp_thread_local_p->tcp_stream_table_size))};
+	if(cc_remap(start, end, 1, &regn, 0, NULL) < 0) {
+		printf("WOWOWOWOW, cc_remap failed....... size = %d, cpu id = %d\n", tcp_thread_local_p->tcp_stream_table_size, tcp_thread_local_p->self_cpu_id);
+		exit(0);
+	}
+	printf("ULCC Allocation: Core %d, Color range %d ~ %d, size = %d.\n", 
+		tcp_thread_local_p->self_cpu_id, 
+		50 * color_range, 50 * (color_range + 1),
+		64 * tcp_thread_local_p->tcp_stream_table_size);
+#endif
 
 	// The TCB array
 #if defined(MEM_ALIGN)
@@ -689,8 +732,10 @@ process_tcp(u_char * data, int skblen, TCP_THREAD_LOCAL_P  tcp_thread_local_p)
 	snd->window = ntohs(this_tcphdr->th_win);
 	if (rcv->rmem_alloc > 65535)
 		prune_queue(rcv, this_tcphdr);
+#if !defined(DISABLE_UPPER_LAYER)
 	if (!a_tcp->listeners)
 		nids_free_tcp_stream(a_tcp, tcp_thread_local_p);
+#endif
 }
 
 #endif
