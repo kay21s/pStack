@@ -1,41 +1,15 @@
 #include "fifo.h"
-#include <stdio.h>
-#include <string.h>
 #include <sched.h>
-#include <parallel.h>
 
 #if defined(FIFO_DEBUG)
 #include <assert.h>
 #endif
 
+/*************************************************/
+/********** Queue Functions **********************/
+/*************************************************/
 
-/* the number of producer is one */
-FIFO_CTRL fifo_g[MAX_CPU_CORES];
-FIFO_BUFFER buffer_g[MAX_CPU_CORES];
-
-static inline uint32_t myrand(uint32_t *next, uint32_t cpu_id)
-{
-	*next = *next * (1103515245 ) + 12345 + cpu_id * 16;
-	return((uint64_t)(*next/65535) % 32768);
-}
-
-
-static inline uint64_t read_tsc()
-{
-	uint64_t        time;
-	uint32_t        msw   , lsw;
-	__asm__         __volatile__("rdtsc\n\t"
-			"movl %%edx, %0\n\t"
-			"movl %%eax, %1\n\t"
-			:         "=r"         (msw), "=r"(lsw)
-			:
-			:         "%edx"      , "%eax");
-	time = ((uint64_t) msw << 32) | lsw;
-	return time;
-}
-
-inline void
-wait_ticks(uint64_t ticks)
+inline void wait_ticks(uint64_t ticks)
 {
         uint64_t        current_time;
         uint64_t        time = read_tsc();
@@ -45,175 +19,287 @@ wait_ticks(uint64_t ticks)
         } while (current_time < time);
 }
 
-/* Insert: called by the producer */
-inline int insert(FIFO_CTRL * fifo, FIFO_BUFFER * buffer, ELEMENT_TYPE element)
+/* ADJUST_SLIP is the original mechanism in Fastforward */
+#if defined(ADJUST_SLIP)
+
+#define DANGER 16
+#define GOOD 64
+#define AVG_STAGE 10
+
+inline uint32_t
+distance(ELEMENT_TYPE volatile *tail, ELEMENT_TYPE volatile *head)
 {
-	uint32_t afterNextWrite = ELEM_NEXT(FIFO_NEXT_WRITE(fifo));
-	if( afterNextWrite == FIFO_LOCAL_READ(fifo) ) {
-		if( afterNextWrite == FIFO_READ(fifo) ) {
-			return INSERT_FAILED;
-		}
-		FIFO_LOCAL_READ(fifo) = FIFO_READ(fifo);
-	}
-	BUFFER_ELEM(buffer, FIFO_NEXT_WRITE(fifo)) = element;
-	FIFO_NEXT_WRITE(fifo) = afterNextWrite;
-	FIFO_W_BATCH(fifo) ++;
-	if( FIFO_W_BATCH(fifo) >= FIFO_BATCH_SIZE(fifo) ) {
-		FIFO_WRITE(fifo) = FIFO_NEXT_WRITE(fifo);
-		FIFO_W_BATCH(fifo) = 0;
-	}
-	return SUCCESS;
+	return (tail > head)?
+	       (tail - head) : (tail + QUEUE_SIZE - head);
 }
 
-/* Extract: called by the consumer */
-inline int extract(FIFO_CTRL * fifo, FIFO_BUFFER * buffer, ELEMENT_TYPE * element)
+inline void
+adjust_slip(queue_t * queue)
 {
-	if( FIFO_NEXT_READ(fifo) == FIFO_LOCAL_WRITE(fifo) ) {
-		if( FIFO_NEXT_READ(fifo) == FIFO_WRITE(fifo)) {
-			return EXTRACT_FAILED;
-		}
-		FIFO_LOCAL_WRITE(fifo) = FIFO_WRITE(fifo);
+	/* Does distance() incur extra cache-coherence traffic? */
+	uint32_t dist_old, dist = distance(queue->tail, queue->head);
+
+	if ( dist < DANGER ) {
+		dist_old = 0;
+		do {
+			dist_old = dist;
+			wait_ticks( AVG_STAGE * ((GOOD+1) - dist) );
+			dist = distance(queue->tail, queue->head);
+		} while (dist < GOOD && dist_old < dist);
 	}
-	*element = BUFFER_ELEM(buffer, FIFO_NEXT_READ(fifo));
-	FIFO_NEXT_READ(fifo) = ELEM_NEXT(FIFO_NEXT_READ(fifo));
-	FIFO_R_BATCH(fifo) ++;
-	if( FIFO_R_BATCH(fifo) >= FIFO_BATCH_SIZE(fifo) ) {
-		FIFO_READ(fifo) = FIFO_NEXT_READ(fifo);
-		FIFO_R_BATCH(fifo) = 0;
-	}
-	return SUCCESS;
 }
 
-#if 0
+#endif /* ADJUST_SLIP */
+
+//void queue_init(uint32_t num)
+void fifo_init(uint32_t num)
+{
+	memset(QUEUE_PTR(num), 0, sizeof(queue_t));
+	QUEUE_HEAD(num) = QUEUE_DATA_PTR(num, 0);
+	QUEUE_TAIL(num) = QUEUE_DATA_PTR(num, 0);
+#if defined(PROD_BATCH) || defined(CONS_BATCH)
+	QUEUE_BATCH_HEAD(num) = QUEUE_HEAD(num);
+	QUEUE_BATCH_TAIL(num) = QUEUE_TAIL(num);
+#endif
+
+	QUEUE_HEAD_ORIG(num) = QUEUE_DATA_PTR(num, 0);
+	QUEUE_TAIL_ORIG(num) = QUEUE_DATA_PTR(num, QUEUE_SIZE);
+	
+}
+
+#if defined(PROD_BATCH) || defined(CONS_BATCH)
+inline int leqthan(ELEMENT_TYPE volatile * point, ELEMENT_TYPE volatile * batch_point)
+{
+	return (point == batch_point);
+}
+#endif
+
+#if defined(PROD_BATCH)
+inline void produce(queue_t * q, ELEMENT_TYPE value)
+{
+	if( leqthan(q->tail, q->batch_tail) ) {
+		q->batch_tail = q->tail + PROD_BATCH_SIZE;
+		if (q->batch_tail >= QUEUE_PTR_TAIL_ORIG(q))
+			q->batch_tail = QUEUE_PTR_HEAD_ORIG(q);
+
+		while ((*q->batch_tail).data)
+			wait_ticks(20000);
+	}
+	QUEUE_PTR_TAIL_VAL(q) = value;
+	QUEUE_PTR_TAIL(q) ++;
+	if ( QUEUE_PTR_TAIL(q) >= QUEUE_PTR_TAIL_ORIG(q))
+		QUEUE_PTR_TAIL(q) = QUEUE_PTR_HEAD_ORIG(q);
+}
+#else
+inline void produce(queue_t * q, ELEMENT_TYPE value)
+{
+	while (QUEUE_PTR_TAIL_VAL(q).data);
+	QUEUE_PTR_TAIL_VAL(q) = value;
+	QUEUE_PTR_TAIL(q) ++;
+	if ( QUEUE_PTR_TAIL(q) >= QUEUE_PTR_TAIL_ORIG(q))
+		QUEUE_PTR_TAIL(q) = QUEUE_PTR_HEAD_ORIG(q);
+}
+#endif
+
+inline int insert(queue_t *q, ELEMENT_TYPE value)
+{
+	produce(q, value);
+	return 0;
+}
+	
+
+
+#if defined(CONS_BATCH)
+
+inline void trashing_detect(queue_t * q)
+{
+	q->batch_head = q->head + CONS_BATCH_SIZE;
+	if (q->batch_head >= QUEUE_PTR_TAIL_ORIG(q))
+		q->batch_head = QUEUE_PTR_HEAD_ORIG(q); 
+
+#if defined(AVOID_DEADLOCK)
+	//uint32_t batch_size = CONS_BATCH_SIZE >> 1;
+	unsigned long batch_size = CONS_BATCH_SIZE ;
+	while (!(*q->batch_head).data) {
+		wait_ticks(5000);
+		q->batch_head = q->head + batch_size;
+		if (q->batch_head >= QUEUE_PTR_TAIL_ORIG(q))
+			q->batch_head = QUEUE_PTR_HEAD_ORIG(q);
+		/* batch_size should be larger than 1 */
+		if( batch_size > 1 ) {
+			batch_size = batch_size >> 1;
+		}
+	}
+#else
+	while (!(*q->batch_head))
+		wait_ticks(20000); 
+#endif
+}
+
+inline ELEMENT_TYPE consume(queue_t * q)
+{
+	ELEMENT_TYPE value;
+	if( leqthan(q->head, q->batch_head) ) {
+		trashing_detect(q);
+	}
+	value = QUEUE_PTR_HEAD_VAL(q);
+	QUEUE_PTR_HEAD_VAL(q).data = 0x0;
+	QUEUE_PTR_HEAD_VAL(q).len = 0;
+	QUEUE_PTR_HEAD(q)++;
+	if (QUEUE_PTR_HEAD(q) >= QUEUE_PTR_TAIL_ORIG(q))
+		QUEUE_PTR_HEAD(q) = QUEUE_PTR_HEAD_ORIG(q);
+	return value;
+}
+
+#else
+
+inline ELEMENT_TYPE consume(queue_t * q)
+{
+	ELEMENT_TYPE value;
+	while (!(QUEUE_PTR_HEAD_VAL(q).data));
+	value = QUEUE_PTR_HEAD_VAL(q);
+	QUEUE_PTR_HEAD_VAL(q).data = 0x0;
+	QUEUE_PTR_HEAD_VAL(q).len = 0;
+	QUEUE_PTR_HEAD(q)++;
+	if (QUEUE_PTR_HEAD(q) >= QUEUE_PTR_TAIL_ORIG(q))
+		QUEUE_PTR_HEAD(q) = QUEUE_PTR_HEAD_ORIG(q);
+
+	return value;
+}
+
+#endif
+
+inline int extract(queue_t *q, ELEMENT_TYPE * value)
+{
+	*value = consume( q );
+	return 0;
+}
+
 /*************************************************/
 /********** Consumer *****************************/
 /*************************************************/
 
-/*  Input: thread control message (arg) */
-void * consumer(void *arg)
+#if 0
+void           *
+consumer(void *arg)
 {
-	uint32_t	cpu_id;
-	uint32_t 	value;
-	int		result;
-	unsigned long cur_mask;
-	uint64_t        i;
-        uint64_t        start_c;
-        uint64_t        stop_c;
+	uint32_t 	cpu_id;
+	void           *value;
+	unsigned long 	cur_mask;
 	uint32_t	rand_t = 1;
-	FIFO_ELEM	elem;
+	uint64_t	i;
+	unsigned long	seed;
 #if defined(FIFO_DEBUG)
-	int64_t		old_value = -1;
+	void	        *old_value = NULL;
 #endif
 
-
 	INIT_INFO * init = (INIT_INFO *) arg;
-	cpu_id = INIT_ID(init);
-	pthread_barrier_t *barrier = INIT_BAR(init);
+	cpu_id = init->cpu_id;
+	pthread_barrier_t *barrier = init->barrier;
 
-#if 1
-	cur_mask = (0x1<<(cpu_id));
+	//cur_mask = (0x2<<(2*cpu_id));
+	//cur_mask = 0x4;
+        if(cpu_id < 4)
+                cur_mask = (0x2<<(2*cpu_id));
+        else
+                cur_mask = (0x1<<(2*(cpu_id-4)));
+	
+
 	printf("consumer %d:  ---%lu----\n", cpu_id, cur_mask);
 	if (sched_setaffinity(0, sizeof(cur_mask), &cur_mask) < 0) {
 		printf("Error: sched_getaffinity\n");
 		return NULL;
 	}
-#endif
+
+	seed = read_tsc();
 
 	printf("Consumer created...\n");
 	pthread_barrier_wait(barrier);
 
-	start_c = read_tsc();
+	QUEUE_START(cpu_id) = read_tsc();
+#if defined(ADJUST_SLIP)
+	adjust_slip( QUEUE_PTR(cpu_id) );
+#endif
+
 	for (i = 1; i <= TEST_SIZE; i++) {
-		do{
-			result = extract(&fifo_g[cpu_id-1], &buffer_g[cpu_id-1], &elem);
-		} while( result != SUCCESS );
-		
-		value = FIFO_ELEM_SIZE(&elem);
+		value = (void *)consume(QUEUE_PTR(cpu_id));
 
 #if defined(WORKLOAD_DEBUG)
-		wait_ticks(CONS_WORK_CYCLES); /* FIXME */
-		workload(myrand(&rand_t, cpu_id));
-#else
-		wait_ticks(CONS_WORK_CYCLES);
+		//wait_ticks(CONS_WORK_CYCLES);
+		workload(&seed);
+#endif
+
+#if defined(ADJUST_SLIP)
+		if ( (i & 0x1F) == 0 ) {
+			adjust_slip( QUEUE_PTR(cpu_id) );
+		}
 #endif
 
 #if defined(FIFO_DEBUG)
-	/* suppose the producer advances the value of elements */
-		assert((old_value + 1) == value);
+		assert(((unsigned long)old_value + 1) == (unsigned long)value);
 		old_value = value;
 #endif
 	}
-	stop_c = read_tsc();
+	QUEUE_STOP(cpu_id) = read_tsc();
 
-	printf("consumer: %d cycles/op\n", ((stop_c - start_c) / ((TEST_SIZE + 1))) - CONS_WORK_CYCLES );
+#if defined(WORKLOAD_DEBUG)
+	printf("consumer: %d cycles/op\n", ((QUEUE_STOP(cpu_id) - QUEUE_START(cpu_id)) / ((TEST_SIZE + 1)))
+	       - AVG_WORKLOAD - CONS_WORK_CYCLES );
+#else
+	printf("consumer: %d cycles/op\n", ((QUEUE_STOP(cpu_id) - QUEUE_START(cpu_id)) / ((TEST_SIZE + 1))));
+#endif
+
 	pthread_barrier_wait(barrier);
-
 	return NULL;
 }
-
 
 /*************************************************/
 /********** Producer *****************************/
 /*************************************************/
 
-/* Input: (1) thread control message (arg) and the number of consumers (num) */
-void producer(void *arg, uint32_t num)
+
+void
+producer(void *arg, uint32_t num)
 {
-        pthread_barrier_t *barrier = (pthread_barrier_t *)arg;
-        uint64_t        i;
-        int32_t 	j;
-	int		result;
-        unsigned long cur_mask;
-        uint64_t        start_p;
-        uint64_t        stop_p;
-	FIFO_ELEM	elem;
+	uint64_t start_p;
+	uint64_t stop_p;
+	//pthread_barrier_t *barrier = (pthread_barrier_t *)arg;
+	uint64_t	i;
+	int32_t j;
+	unsigned long cur_mask;
+	INIT_INFO * init = (INIT_INFO *) arg;
+	pthread_barrier_t *barrier = init->barrier;
 
-#if 1
-        cur_mask = (0x1);
-        printf("producer %d:  ---%lu----\n", 0, cur_mask);
-        if (sched_setaffinity(0, sizeof(cur_mask), &cur_mask) < 0) {
-                printf("Error: sched_getaffinity\n");
-                return ;
-        }
-#endif
-
-        pthread_barrier_wait(barrier);
-
-        start_p = read_tsc();
-	/* (TEST_SIZE + BATCH_SIZE): to dump all the data into fifo */ 
-        for (i = 1; i <= (TEST_SIZE + BATCH_SIZE + 2); i++) {
-		FIFO_ELEM_SIZE(&elem) = i;
-		for(j=0; j<num; j++) { /* the number of consumer is num */
-			do {
-				result = insert(&fifo_g[j], &buffer_g[j], elem);
-			}while (result != SUCCESS);
-			wait_ticks(PROD_WORK_CYCLES/num);
-		}
-        }
-        stop_p = read_tsc();
-
-	printf("producer: %d cycles/op\n", ((stop_p - start_p) / ((TEST_SIZE + 1)*(num))) - (PROD_WORK_CYCLES/num) - WAIT_TICKS_LATENCY);
-        pthread_barrier_wait(barrier);
-	
-}
-
-#endif
-
-int fifo_init(int num)
-{
-	if(num > MAX_CPU_CORES) {
-		return -1;
+	cur_mask = (0x1 << 1);
+	printf("producer %d:  ---%lu----\n", 0, cur_mask);
+	if (sched_setaffinity(0, sizeof(cur_mask), &cur_mask) < 0) {
+		printf("Error: sched_getaffinity\n");
+		return ;
 	}
-	memset(&fifo_g[num], 0, sizeof(FIFO_CTRL));
-	FIFO_BATCH_SIZE(&fifo_g[num]) = BATCH_SIZE;
 
-	/* consumer starts from buffer[1] */
-	FIFO_WRITE(&fifo_g[num]) = ELEM_NEXT(FIFO_READ(&fifo_g[num]));
-	FIFO_NEXT_WRITE(&fifo_g[num]) = FIFO_WRITE(&fifo_g[num]);
+	pthread_barrier_wait(barrier);
 
+	start_p = read_tsc();
+	/* (CONS_BATCH_SIZE) is the penalty of Batch Processing */
+	for (i = 1; i <= TEST_SIZE + CONS_BATCH_SIZE; i++) {
+		for (j=1; j<num; j++) {
+			produce(QUEUE_PTR(j), (ELEMENT_TYPE)i);
+#if defined(INCURE_DEBUG)
+			if(i==(TEST_SIZE >> 1))
+				produce(QUEUE_PTR(j), (void *)i);
+#endif
+			//wait_ticks(PROD_WORK_CYCLES/(num-1));
+		}
+	}
+	stop_p = read_tsc();
 
-	memset(&buffer_g[num], 0, sizeof(FIFO_BUFFER));
-	
-	return 0;
+#if defined(WORKLOAD_DEBUG)
+	printf("prod %d cycles/op\n", ((stop_p - start_p) / ((TEST_SIZE + 1)*(num -1)))-PROD_WORK_CYCLES/(num-1));
+#else
+	printf("prod %d cycles/op\n", (stop_p - start_p) / ((TEST_SIZE + 1)*(num -1)));
+#endif
+
+	pthread_barrier_wait(barrier);
 }
 
+#endif

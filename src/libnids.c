@@ -15,7 +15,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <alloca.h>
-#include <pcap.h>
+#include "../pcap-1.1.1/pcap.h"
 #include <errno.h>
 #include <config.h>
 #if (HAVE_UNISTD_H)
@@ -28,8 +28,6 @@
 #include "tcp.threaded.h"
 #include "parallel.h"
 #include "conn_origin.threaded.h"
-#include "conn_tcp.threaded.h"
-#include "conn_indexfree.threaded.h"
 #include "conn_major_indexfree.threaded.h"
 #include <sched.h>
 #include <pthread.h>
@@ -49,8 +47,7 @@
 
 #if defined(PARALLEL)
 
-extern FIFO_CTRL fifo_g[];
-extern FIFO_BUFFER buffer_g[];
+extern queue_t global_queue[];
 
 #define LOAD_BALANCE_ARRAY_SIZE 32
 
@@ -303,7 +300,7 @@ static void call_ip_frag_procs(void *data, bpf_u_int32 caplen)
 	time1 = read_tsc();
 #endif
 		do{ 
-			res = insert(&fifo_g[fifo_id], &buffer_g[fifo_id], elem);
+			res = insert(&global_queue[fifo_id], elem);
 		} while (res < 0); 
 
 #if defined(CYCLE)
@@ -374,7 +371,7 @@ static void ip_queue_process_thread(void *cpu_id)
 		fifo_id = thread_id;
 
 		do {
-			result = extract(&fifo_g[fifo_id], &buffer_g[fifo_id], &elem);
+			result = extract(&global_queue[fifo_id], &elem);
 		} while( result != SUCCESS );
 
 		if( first == 1) {
@@ -975,7 +972,7 @@ int nids_run()
 
 		for(j = 0; j <= BATCH_SIZE; j ++) {
 			do{
-				res = insert(&fifo_g[new_id], &buffer_g[new_id], elem);
+	                        res = insert(&global_queue[new_id], elem);
 			}while(res < 0);
 		}
 

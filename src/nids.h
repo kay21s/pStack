@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 # include <netinet/ip.h>
 # include <netinet/tcp.h>
-# include <pcap.h>
+# include "../pcap-1.1.1/pcap.h"
 
 # ifdef __cplusplus
 extern "C" {

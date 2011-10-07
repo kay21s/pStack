@@ -21,9 +21,6 @@
 #include "util.h"
 #include "nids.h"
 #include "hash.h"
-#include "conn_tcp.h"
-#include "conn_split.h"
-#include "conn_indexfree.h"
 #include "conn_major_indexfree.h"
 #include "conn_attribute.h"
 
