@@ -1,0 +1,380 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+CC	Makefile	/^CC= gcc$/;"	m
+CC_AID_INVALID	ulcc.h	88;"	d
+CC_ALLOC_MOVE	ulcc.h	58;"	d
+CC_ALLOC_NOMOVE	ulcc.h	59;"	d
+CC_MAPORDER_ARB	ulcc.h	64;"	d
+CC_MAPORDER_RAND	ulcc.h	63;"	d
+CC_MAPORDER_SEQ	ulcc.h	62;"	d
+CC_MASK_MAPORDER	ulcc.h	61;"	d
+CC_MASK_MOVE	ulcc.h	57;"	d
+CC_PRIVATE	ulcc.h	/^	CC_PRIVATE =		1,$/;"	e	enum:__anon1
+CC_SHARED	ulcc.h	/^	CC_SHARED =			2$/;"	e	enum:__anon1
+CC_UNSPECIFIED	ulcc.h	/^	CC_UNSPECIFIED =	0,$/;"	e	enum:__anon1
+DEBUG	Makefile	/^DEBUG=$/;"	m
+LIB_CFLAGS	Makefile	/^LIB_CFLAGS=		-O -fPIC -Wall $(LIB_DEFS) $(CONFIGS) $(DEBUG)$/;"	m
+LIB_DEFS	Makefile	/^LIB_DEFS=		-D_ULCC_LIB$/;"	m
+LIB_INCS	Makefile	/^LIB_INCS=		-I.$/;"	m
+LIB_LDFLAGS	Makefile	/^LIB_LDFLAGS=		-shared$/;"	m
+LIB_LIBS	Makefile	/^LIB_LIBS=		-lrt -lpthread$/;"	m
+LIB_OBJS	Makefile	/^LIB_OBJS=		ulcc.o			\\$/;"	m
+LOCKFILE	memmgr.c	28;"	d	file:
+LOCKMODE	memmgr.c	29;"	d	file:
+MAX_PAGES_PER_LOOP	mmclient.h	13;"	d
+MIN_PAGES_PER_LOOP	mmclient.h	14;"	d
+MM_CFLAGS	Makefile	/^MM_CFLAGS=		-O -Wall $(MM_DEFS) $(CONFIGS) $(DEBUG)$/;"	m
+MM_CTLQUE_MSGSIZE	memmgr.h	59;"	d
+MM_DEFS	Makefile	/^MM_DEFS=$/;"	m
+MM_INCS	Makefile	/^MM_INCS=		-I.$/;"	m
+MM_LDFLAGS	Makefile	/^MM_LDFLAGS=$/;"	m
+MM_LIBS	Makefile	/^MM_LIBS=		-lrt -lpthread$/;"	m
+MM_MAXMSG_DEFAULT	mmsvr.c	39;"	d	file:
+MM_MSGPRIO_EXIT	memmgr.h	73;"	d
+MM_MSGPRIO_GETPAGES	memmgr.h	70;"	d
+MM_MSGPRIO_PRESSURE	memmgr.h	72;"	d
+MM_MSGPRIO_PUTPAGES	memmgr.h	71;"	d
+MM_MSG_EXIT	memmgr.h	67;"	d
+MM_MSG_GETPAGES	memmgr.h	64;"	d
+MM_MSG_INVALID	memmgr.h	62;"	d
+MM_MSG_PRESSURE	memmgr.h	66;"	d
+MM_MSG_PUTPAGES	memmgr.h	65;"	d
+MM_OBJS	Makefile	/^MM_OBJS=		memmgr.o		\\$/;"	m
+MM_PAGE_BLOCK_PAGES	memmgr.h	24;"	d
+MM_SVCQUE_MSGSIZE	memmgr.h	49;"	d
+MM_WAKE_LEN	memmgr.h	26;"	d
+PAGEMAP_MASK_PFN	translator.h	16;"	d
+PAGEMAP_PAGE_PRESENT	translator.h	17;"	d
+PB_INIT_BATCH_PAGES	mmsvr.c	519;"	d	file:
+ULCC_ALIGN_HIGHER	ulcc.h	44;"	d
+ULCC_ALIGN_LOWER	ulcc.h	49;"	d
+ULCC_CACHE_ASSOC	arch.h	26;"	d
+ULCC_CACHE_BYTES_PER_COLOR	arch.h	45;"	d
+ULCC_CACHE_KB	arch.h	24;"	d
+ULCC_CLR_COLOR_BIT	remapper.h	30;"	d
+ULCC_FREE	ulcc.h	37;"	d
+ULCC_MASK_PFN_COLOR	translator.h	18;"	d
+ULCC_MAX	ulcc.h	40;"	d
+ULCC_MIN	ulcc.h	39;"	d
+ULCC_NAME_MM_CTLQUE	memmgr.h	14;"	d
+ULCC_NAME_MM_SVCQUE	memmgr.h	13;"	d
+ULCC_NAME_SEM_BUSY_PAGES	cache.h	19;"	d
+ULCC_NAME_SEM_CACHE_STATUS	cache.h	17;"	d
+ULCC_NAME_SEM_MM_FREE_PAGES	memmgr.h	16;"	d
+ULCC_NAME_SHM_BUSY_PAGES	cache.h	18;"	d
+ULCC_NAME_SHM_CACHE_STATUS	cache.h	16;"	d
+ULCC_NAME_SHM_MM_FREE_PAGES	memmgr.h	15;"	d
+ULCC_NUM_CACHE_COLORS	arch.h	43;"	d
+ULCC_NUM_CPUS	arch.h	48;"	d
+ULCC_NUM_CPUS_PER_CACHE	arch.h	29;"	d
+ULCC_NUM_SHARED_CACHES	arch.h	31;"	d
+ULCC_PAGE_BITS	arch.h	21;"	d
+ULCC_PAGE_BYTES	arch.h	36;"	d
+ULCC_PAGE_IDX_MASK	arch.h	39;"	d
+ULCC_PAGE_KB	arch.h	37;"	d
+ULCC_PAGE_NBR	arch.h	40;"	d
+ULCC_PAGE_OFFSET_MASK	arch.h	38;"	d
+ULCC_PRIV_MM_CTLQUE	memmgr.h	19;"	d
+ULCC_PRIV_MM_SVCQUE	memmgr.h	18;"	d
+ULCC_PRIV_SEM_BUSY_PAGES	cache.h	26;"	d
+ULCC_PRIV_SEM_CACHE_STATUS	cache.h	22;"	d
+ULCC_PRIV_SEM_MM_FREE_PAGES	memmgr.h	21;"	d
+ULCC_PRIV_SHM_BUSY_PAGES	cache.h	28;"	d
+ULCC_PRIV_SHM_CACHE_STATUS	cache.h	24;"	d
+ULCC_PRIV_SHM_MM_FREE_PAGES	memmgr.h	20;"	d
+ULCC_SET_COLOR_BIT	remapper.h	26;"	d
+ULCC_TST_COLOR_BIT	remapper.h	34;"	d
+UTIL_CFLAGS	Makefile	/^UTIL_CFLAGS=		-O -Wall $(UTIL_DEFS) $(CONFIGS) $(DEBUG)$/;"	m
+UTIL_DEFS	Makefile	/^UTIL_DEFS=$/;"	m
+UTIL_INCS	Makefile	/^UTIL_INCS=		-I.$/;"	m
+UTIL_LDFLAGS	Makefile	/^UTIL_LDFLAGS=$/;"	m
+UTIL_LIBS	Makefile	/^UTIL_LIBS=		-lrt$/;"	m
+UTIL_OBJS	Makefile	/^UTIL_OBJS=		ulccenv.o$/;"	m
+VM_LIST_NODE_SIZE	remapper.h	53;"	d
+_CACHEREGN_GET_BATCH_SIZE	remapper.c	963;"	d	file:
+_GNU_SOURCE	mmsvr.c	10;"	d	file:
+_GNU_SOURCE	remapper.c	10;"	d	file:
+_GNU_SOURCE	ulcc.c	10;"	d	file:
+_GNU_SOURCE	util.c	10;"	d	file:
+_H_CACHE_INTERNAL_	cache.c	21;"	d	file:
+_H_CACHE_INTERNAL_	cache.c	23;"	d	file:
+_H_REMAPPER_INTERNAL_	remapper.c	22;"	d	file:
+_H_REMAPPER_INTERNAL_	remapper.c	24;"	d	file:
+_SET_UC_BATCH_SIZE	ulcc.c	323;"	d	file:
+_ULCC_ALLOCATOR_H_	allocator.h	11;"	d
+_ULCC_ARCH_H_	arch.h	11;"	d
+_ULCC_ASSERT	ulcc.h	28;"	d
+_ULCC_ASSERT	ulcc.h	33;"	d
+_ULCC_CACHE_H_	cache.h	11;"	d
+_ULCC_CONFIG_OS32	arch.h	17;"	d
+_ULCC_ERROR	ulcc.h	31;"	d
+_ULCC_ERROR	ulcc.h	34;"	d
+_ULCC_EXPORT	ulcc.h	18;"	d
+_ULCC_EXPORT	ulcc.h	21;"	d
+_ULCC_HIDDEN	cache.c	/^cc_cache_status_t *cache_status _ULCC_HIDDEN = MAP_FAILED;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int candidates_exist[ULCC_NUM_CACHE_COLORS] _ULCC_HIDDEN;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int candidates_new[ULCC_NUM_CACHE_COLORS] _ULCC_HIDDEN;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int i_sel_exist_end _ULCC_HIDDEN = 0;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int i_sel_exist_start _ULCC_HIDDEN = 0;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int i_sel_new_end _ULCC_HIDDEN = 0;$/;"	v
+_ULCC_HIDDEN	cache.c	/^int i_sel_new_start _ULCC_HIDDEN = 0;$/;"	v
+_ULCC_HIDDEN	cache.c	/^sem_t *sem_busy_pages _ULCC_HIDDEN = SEM_FAILED;$/;"	v
+_ULCC_HIDDEN	cache.c	/^sem_t *sem_cache_status _ULCC_HIDDEN = SEM_FAILED;$/;"	v
+_ULCC_HIDDEN	cache.c	/^unsigned long *busy_pages _ULCC_HIDDEN = MAP_FAILED;$/;"	v
+_ULCC_HIDDEN	mmclient.c	/^sem_t *sem_mm_free_pages _ULCC_HIDDEN = SEM_FAILED;$/;"	v
+_ULCC_HIDDEN	mmclient.c	/^unsigned long *mm_free_pages _ULCC_HIDDEN = MAP_FAILED;$/;"	v
+_ULCC_HIDDEN	registry.c	/^cc_aid_t next_aid _ULCC_HIDDEN = 0;$/;"	v
+_ULCC_HIDDEN	registry.c	/^cc_registry_t reg_alloc _ULCC_HIDDEN =$/;"	v
+_ULCC_HIDDEN	ulcc.h	19;"	d
+_ULCC_HIDDEN	ulcc.h	22;"	d
+_ULCC_H_	ulcc.h	11;"	d
+_ULCC_MAX_AID	registry.h	16;"	d
+_ULCC_MEMMGR_H_	memmgr.h	11;"	d
+_ULCC_MMCLIENT_H_	mmclient.h	11;"	d
+_ULCC_MMSVR_H_	mmsvr.h	11;"	d
+_ULCC_REGISTRY_H_	registry.h	11;"	d
+_ULCC_REMAPPER_H_	remapper.h	11;"	d
+_ULCC_STRINGIFY	ulcc.h	27;"	d
+_ULCC_TRANSLATOR_H_	translator.h	11;"	d
+_ULCC_UTIL_H_	util.h	11;"	d
+_XOPEN_SOURCE	mmclient.c	10;"	d	file:
+__cc_libfini	ulcc.c	/^__cc_libfini(void)$/;"	f
+__cc_libinit	ulcc.c	/^__cc_libinit(void)$/;"	f
+_cache_rsv_private	cache.c	/^int _cache_rsv_private(const int *caidx, const int nca, const int c_colors,$/;"	f
+_cache_rsv_shared	cache.c	/^int _cache_rsv_shared(const int *caidx, const int nca, const int c_colors,$/;"	f
+_cache_rsv_shared_bp	cache.c	/^int _cache_rsv_shared_bp(const int *caidx, const int nca,$/;"	f
+_cache_rsv_shared_fp	cache.c	/^int _cache_rsv_shared_fp(const int *caidx, const int nca,$/;"	f
+_new_pagepipe_key	remapper.c	/^unsigned long _new_pagepipe_key(void)$/;"	f
+_new_sem_name	mmclient.c	/^void _new_sem_name(char *name, unsigned int rnd_seed)$/;"	f
+_new_sem_name	mmsvr.c	/^void _new_sem_name(char *name, unsigned int rnd_seed)$/;"	f
+_next_aid	registry.c	/^cc_aid_t _next_aid(void)$/;"	f
+_page_picker_free	remapper.c	/^void _page_picker_free(struct _page_picker_s *picker)$/;"	f
+_page_picker_new	remapper.c	/^struct _page_picker_s *_page_picker_new(const int c_pages,$/;"	f
+_page_picker_s	remapper.h	/^struct _page_picker_s$/;"	s
+_partition	cache.c	/^int _partition(int *sort, int p, int r, const unsigned long *ref)$/;"	f
+_pick_pages_nopipe	remapper.c	/^int _pick_pages_nopipe(struct _page_picker_s *picker, struct _vm_list_s *vml,$/;"	f
+_pick_pages_pagepipe	remapper.c	/^int _pick_pages_pagepipe(struct _page_picker_s *picker, struct _vm_list_s *vml,$/;"	f
+_quick_sort	cache.c	/^void _quick_sort(int *sort, int p, int r, const unsigned long *ref)$/;"	f
+_remap_pages	remapper.c	/^int _remap_pages(struct _page_picker_s *picker,$/;"	f
+_remap_pages_arb	remapper.c	/^int _remap_pages_arb(struct _page_picker_s *picker,$/;"	f
+_remap_pages_rand	remapper.c	/^int _remap_pages_rand(struct _page_picker_s *picker,$/;"	f
+_remap_pages_seq	remapper.c	/^int _remap_pages_seq(struct _page_picker_s *picker,$/;"	f
+_sort_coidx	cache.c	/^void _sort_coidx(int *sort, const int nsort, const unsigned long *ref)$/;"	f
+_vm_list_add	remapper.c	/^int _vm_list_add(struct _vm_list_s *list, void *m)$/;"	f
+_vm_list_free	remapper.c	/^void _vm_list_free(struct _vm_list_s *list)$/;"	f
+_vm_list_new	remapper.c	/^struct _vm_list_s *_vm_list_new()$/;"	f
+_vm_list_node_free	remapper.c	/^void _vm_list_node_free(struct _vm_list_node_s *node)$/;"	f
+_vm_list_node_new	remapper.c	/^struct _vm_list_node_s *_vm_list_node_new()$/;"	f
+_vm_list_node_s	remapper.h	/^struct _vm_list_node_s$/;"	s
+_vm_list_s	remapper.h	/^struct _vm_list_s$/;"	s
+aid	registry.h	/^	cc_aid_t				aid;		\/* Allocation id *\/$/;"	m	struct:cc_regent_s
+already_running	memmgr.c	/^int already_running(void)$/;"	f
+avail_mem_pages	mmsvr.c	/^long avail_mem_pages(void)$/;"	f
+b_count	mmsvr.h	/^	int b_count;	\/* How many pages currently in this page block *\/$/;"	m	struct:mm_page_block_s
+b_max	mmsvr.h	/^	int b_max;		\/* Maximum available page slots in this block *\/$/;"	m	struct:mm_page_block_s
+b_pages	mmsvr.h	/^	void *b_pages;	\/* A vm region holding pages in this block. The address of the$/;"	m	struct:mm_page_block_s
+busy_pages_add	cache.c	/^int busy_pages_add(const cc_cacheregn_t *regn, const int *c_pages)$/;"	f
+busy_pages_close	cache.c	/^void busy_pages_close(void)$/;"	f
+busy_pages_lock	cache.c	/^int busy_pages_lock(void)$/;"	f
+busy_pages_open	cache.c	/^int busy_pages_open(void)$/;"	f
+busy_pages_rm	cache.c	/^int busy_pages_rm(const cc_cacheregn_t *regn, const int *c_pages)$/;"	f
+busy_pages_unlock	cache.c	/^int busy_pages_unlock(void)$/;"	f
+c_colors	registry.h	/^	int						c_colors;	\/* Number of cache colors *\/$/;"	m	struct:cc_regent_s
+c_pages	registry.h	/^	int						*c_pages;	\/* Contain c_colors integers *\/$/;"	m	struct:cc_regent_s
+cache_idx	arch.c	/^int cache_idx(int cid)$/;"	f
+cache_idx_array	cache.c	/^int cache_idx_array(const int *cpus, const int nc, int *caidx, int *nca)$/;"	f
+cache_page_blocks_s	mmsvr.h	/^typedef struct cache_page_blocks_s$/;"	s
+cache_page_blocks_t	mmsvr.h	/^} cache_page_blocks_t;$/;"	t	typeref:struct:cache_page_blocks_s
+cache_pb_fini	mmsvr.c	/^void cache_pb_fini()$/;"	f
+cache_pb_get	mmsvr.c	/^mm_page_block_t *cache_pb_get()$/;"	f
+cache_pb_init	mmsvr.c	/^int cache_pb_init()$/;"	f
+cache_pb_put	mmsvr.c	/^void cache_pb_put(mm_page_block_t *p)$/;"	f
+cache_status_close	cache.c	/^void cache_status_close(void)$/;"	f
+cache_status_lock	cache.c	/^int cache_status_lock(void)$/;"	f
+cache_status_open	cache.c	/^int cache_status_open(void)$/;"	f
+cache_status_unlock	cache.c	/^int cache_status_unlock(void)$/;"	f
+cache_to_cpus	arch.c	/^int cache_to_cpus[ULCC_NUM_SHARED_CACHES][ULCC_NUM_CPUS_PER_CACHE] =$/;"	v
+cachepb	mmsvr.c	/^cache_page_blocks_t		cachepb;$/;"	v
+caidx	registry.h	/^	int						*caidx;		\/* Indexes to shared caches involved *\/$/;"	m	struct:cc_regent_s
+cc_addr_translate	translator.c	/^int cc_addr_translate(cc_uint64_t *pfnbuf, const unsigned long vmp_start,$/;"	f
+cc_aid_t	ulcc.h	/^typedef cc_int64_t cc_aid_t;$/;"	t
+cc_alloc	ulcc.c	/^cc_aid_t cc_alloc(const cc_dataset_t *dst, const cc_thrdset_t *tst,$/;"	f
+cc_alloc2	ulcc.c	/^cc_aid_t cc_alloc2(const unsigned long start, const unsigned long end,$/;"	f
+cc_alloc2_cpus	ulcc.c	/^cc_aid_t cc_alloc2_cpus(const unsigned long start, const unsigned long end,$/;"	f
+cc_alloc_add	ulcc.c	/^cc_aid_t cc_alloc_add(const cc_aid_t aid, const cc_dataset_t *dst, int flags)$/;"	f
+cc_alloc_add2	ulcc.c	/^cc_aid_t cc_alloc_add2(const cc_aid_t aid, const unsigned long start,$/;"	f
+cc_alloc_cpus	ulcc.c	/^cc_aid_t cc_alloc_cpus(const cc_dataset_t *dst, const cc_cpuset_t *cst,$/;"	f
+cc_allocator_fini	allocator.c	/^void cc_allocator_fini(void)$/;"	f
+cc_allocator_init	allocator.c	/^int cc_allocator_init(void)$/;"	f
+cc_cache_colors	util.c	/^int cc_cache_colors(void)$/;"	f
+cc_cache_fini	cache.c	/^void cc_cache_fini(void)$/;"	f
+cc_cache_init	cache.c	/^int cc_cache_init(void)$/;"	f
+cc_cache_rel	cache.c	/^int cc_cache_rel(const int *caidx, const int nca, const cc_cacheregn_t *regn)$/;"	f
+cc_cache_rsv	cache.c	/^int cc_cache_rsv(const int size, const int type, const int *caidx, const int nca,$/;"	f
+cc_cache_size	util.c	/^int cc_cache_size(void)$/;"	f
+cc_cache_status_s	cache.h	/^typedef struct cc_cache_status_s$/;"	s
+cc_cache_status_t	cache.h	/^} cc_cache_status_t;$/;"	t	typeref:struct:cc_cache_status_s
+cc_cacheregn_clr	remapper.c	/^void cc_cacheregn_clr(cc_cacheregn_t *regn)$/;"	f
+cc_cacheregn_cnt	remapper.c	/^int cc_cacheregn_cnt(const cc_cacheregn_t *regn)$/;"	f
+cc_cacheregn_get	remapper.c	/^int cc_cacheregn_get(cc_cacheregn_t *regn, const unsigned long start,$/;"	f
+cc_cacheregn_s	remapper.h	/^typedef struct cc_cacheregn_s$/;"	s
+cc_cacheregn_set	remapper.c	/^void cc_cacheregn_set(cc_cacheregn_t *regn, const int low, const int high,$/;"	f
+cc_cacheregn_t	remapper.h	/^} cc_cacheregn_t;$/;"	t	typeref:struct:cc_cacheregn_s
+cc_cacheslot_s	ulcc.h	/^typedef struct cc_cacheslot_s$/;"	s
+cc_cacheslot_t	ulcc.h	/^} cc_cacheslot_t;$/;"	t	typeref:struct:cc_cacheslot_s
+cc_cid_t	ulcc.h	/^typedef int cc_cid_t;$/;"	t
+cc_cpuset_add	util.c	/^int cc_cpuset_add(cc_cpuset_t *cst, const cc_cid_t *cpus, const int n)$/;"	f
+cc_cpuset_count	util.c	/^int cc_cpuset_count(const cc_cpuset_t *cst)$/;"	f
+cc_cpuset_from_thrdset	util.c	/^int cc_cpuset_from_thrdset(cc_cpuset_t *cst, const cc_thrdset_t *tst)$/;"	f
+cc_cpuset_proc	util.c	/^int cc_cpuset_proc(cc_cpuset_t *cst, const pid_t pid)$/;"	f
+cc_cpuset_t	ulcc.h	/^typedef cpu_set_t cc_cpuset_t;$/;"	t
+cc_dataset_add	util.c	/^int cc_dataset_add(cc_dataset_t *dst, const unsigned long start, const unsigned long end)$/;"	f
+cc_dataset_add2	util.c	/^int cc_dataset_add2(cc_dataset_t *dst, const cc_dataset_t *dst2)$/;"	f
+cc_dataset_clr	util.c	/^void cc_dataset_clr(cc_dataset_t *dst)$/;"	f
+cc_dataset_free	util.c	/^void cc_dataset_free(cc_dataset_t *dst)$/;"	f
+cc_dataset_new	util.c	/^cc_dataset_t *cc_dataset_new(const int max)$/;"	f
+cc_dataset_s	ulcc.h	/^typedef struct cc_dataset_s$/;"	s
+cc_dataset_t	ulcc.h	/^} cc_dataset_t;$/;"	t	typeref:struct:cc_dataset_s
+cc_dealloc	ulcc.c	/^int cc_dealloc(const cc_aid_t aid)$/;"	f
+cc_do_alloc	allocator.c	/^cc_aid_t cc_do_alloc(const unsigned long *start, const unsigned long *end,$/;"	f
+cc_do_alloc_add	allocator.c	/^int cc_do_alloc_add(const cc_aid_t aid, const unsigned long *start,$/;"	f
+cc_do_dealloc	allocator.c	/^int cc_do_dealloc(const cc_aid_t aid)$/;"	f
+cc_fini	ulcc.c	/^void cc_fini(void)$/;"	f
+cc_init	ulcc.c	/^int cc_init(void)$/;"	f
+cc_int64_t	ulcc.h	/^typedef long					cc_int64_t;$/;"	t
+cc_int64_t	ulcc.h	/^typedef long long				cc_int64_t;$/;"	t
+cc_mm_sndreq	mmclient.c	/^int cc_mm_sndreq(const int color, const int pages)$/;"	f
+cc_mm_sndreq	mmclient.c	/^int cc_mm_sndreq(const int color, const int pages, const unsigned long pipeid,$/;"	f
+cc_mmclient_fini	mmclient.c	/^void cc_mmclient_fini(void)$/;"	f
+cc_mmclient_init	mmclient.c	/^int cc_mmclient_init(void)$/;"	f
+cc_pfn_color	translator.h	24;"	d
+cc_pfn_present	translator.h	21;"	d
+cc_reg_fini	registry.c	/^void cc_reg_fini(void)$/;"	f
+cc_reg_get	registry.c	/^cc_regent_t *cc_reg_get(const cc_aid_t aid)$/;"	f
+cc_reg_init	registry.c	/^int cc_reg_init(void)$/;"	f
+cc_reg_lock	registry.c	/^int cc_reg_lock(void)$/;"	f
+cc_reg_push	registry.c	/^cc_aid_t cc_reg_push(const unsigned long *start, const unsigned long *end,$/;"	f
+cc_reg_rm	registry.c	/^cc_regent_t *cc_reg_rm(cc_aid_t aid)$/;"	f
+cc_reg_unlock	registry.c	/^int cc_reg_unlock(void)$/;"	f
+cc_regent_free	registry.c	/^void cc_regent_free(cc_regent_t *ent)$/;"	f
+cc_regent_new	registry.c	/^cc_regent_t *cc_regent_new(const unsigned long *start, const unsigned long *end,$/;"	f
+cc_regent_s	registry.h	/^typedef struct cc_regent_s$/;"	s
+cc_regent_t	registry.h	/^} cc_regent_t;$/;"	t	typeref:struct:cc_regent_s
+cc_registry_s	registry.h	/^typedef struct cc_registry_s$/;"	s
+cc_registry_t	registry.h	/^} cc_registry_t;$/;"	t	typeref:struct:cc_registry_s
+cc_remap	remapper.c	/^int cc_remap(const unsigned long *start, const unsigned long *end, const int n,$/;"	f
+cc_set_uc	ulcc.c	/^int cc_set_uc(const unsigned long start, const unsigned long end, const int uc)$/;"	f
+cc_thrdset_add	util.c	/^int cc_thrdset_add(cc_thrdset_t *tst, const cc_tid_t *threads, const int n)$/;"	f
+cc_thrdset_free	util.c	/^void cc_thrdset_free(cc_thrdset_t *tst)$/;"	f
+cc_thrdset_new	util.c	/^cc_thrdset_t *cc_thrdset_new(int max)$/;"	f
+cc_thrdset_s	ulcc.h	/^typedef struct cc_thrdset_s$/;"	s
+cc_thrdset_t	ulcc.h	/^} cc_thrdset_t;$/;"	t	typeref:struct:cc_thrdset_s
+cc_tid_t	ulcc.h	/^typedef pthread_t cc_tid_t;$/;"	t
+cc_uint64_t	ulcc.h	/^typedef unsigned long			cc_uint64_t;$/;"	t
+cc_uint64_t	ulcc.h	/^typedef unsigned long long		cc_uint64_t;$/;"	t
+color_map	remapper.h	/^	unsigned char color_map[ULCC_NUM_CACHE_COLORS \/ 8];$/;"	m	struct:cc_cacheregn_s
+cont_wo_free_pages	mmsvr.c	/^static int cont_wo_free_pages = 1;$/;"	v	file:
+count	cache.h	/^	int		count[ULCC_NUM_CACHE_COLORS];	\/* Count of current mappings to each$/;"	m	struct:cc_cache_status_s
+count	remapper.h	/^	int		count;		\/* Current number of vm regions in this node *\/$/;"	m	struct:_vm_list_node_s
+ctl_arg	memmgr.h	/^	long	ctl_arg;$/;"	m	struct:mm_ctlmsg_s
+ctl_cmd	memmgr.h	/^	int		ctl_cmd;$/;"	m	struct:mm_ctlmsg_s
+ctl_wake	memmgr.h	/^	char	ctl_wake[MM_WAKE_LEN];$/;"	m	struct:mm_ctlmsg_s
+ctlque	mmsvr.c	/^mqd_t ctlque = -1;	\/* Only the owner or the root can send msg to the queue *\/$/;"	v
+d_count	ulcc.h	/^	int				d_count;	\/* Current number of memory regions *\/$/;"	m	struct:cc_dataset_s
+d_end	ulcc.h	/^	unsigned long	*d_end;$/;"	m	struct:cc_dataset_s
+d_max	ulcc.h	/^	int				d_max;		\/* Maximum number of memory regions *\/$/;"	m	struct:cc_dataset_s
+d_start	ulcc.h	/^	unsigned long	*d_start;$/;"	m	struct:cc_dataset_s
+daemonize	memmgr.c	/^void daemonize(const char *cmd)$/;"	f
+do_exit	mmsvr.c	/^void do_exit(mm_ctlmsg_t *pmsg)$/;"	f
+do_getpages	mmsvr.c	/^int do_getpages(mm_svcmsg_t *pmsg)$/;"	f
+do_pressure	mmsvr.c	/^void do_pressure(mm_ctlmsg_t *pmsg)$/;"	f
+end	registry.h	/^	unsigned long			*end;		\/* End addresses of data regions *\/$/;"	m	struct:cc_regent_s
+env_fini	ulccenv.c	/^int env_fini()$/;"	f
+env_init	ulccenv.c	/^int env_init()$/;"	f
+free_pages	mmsvr.c	/^unsigned long *free_pages = MAP_FAILED;$/;"	v
+free_pages_fini	mmsvr.c	/^void free_pages_fini()$/;"	f
+free_pages_init	mmsvr.c	/^int free_pages_init()$/;"	f
+free_pages_lock	mmsvr.c	/^void free_pages_lock()$/;"	f
+free_pages_unlock	mmsvr.c	/^void free_pages_unlock()$/;"	f
+head	registry.h	/^	cc_regent_t		*head;$/;"	m	struct:cc_registry_s
+head	remapper.h	/^	struct _vm_list_node_s	*head;$/;"	m	struct:_vm_list_s	typeref:struct:_vm_list_s::_vm_list_node_s
+head_free	mmsvr.h	/^	mm_page_block_t		*head_free;$/;"	m	struct:cache_page_blocks_s
+ignore_oom	memmgr.c	/^int ignore_oom()$/;"	f
+insert_page	mmsvr.c	/^int insert_page(void *vaddr, const int color)$/;"	f
+lockfile	memmgr.c	/^int lockfile(int fd)$/;"	f
+main	memmgr.c	/^int main(int argc, char *argv[])$/;"	f
+main	ulccenv.c	/^int main(int argc, char *argv[])$/;"	f
+max	remapper.h	/^	int		max;		\/* Max number of virtual spaces in this node *\/$/;"	m	struct:_vm_list_node_s
+max_num_msg	mmsvr.c	/^static long max_num_msg = MM_MAXMSG_DEFAULT;$/;"	v	file:
+max_pages_held	mmsvr.c	/^static long max_pages_held = 0;$/;"	v	file:
+max_percent_held	mmsvr.c	/^static int max_percent_held = 25;$/;"	v	file:
+max_pick_loops	mmclient.c	/^int max_pick_loops(const int c_pages, const int c_colors)$/;"	f
+mem	remapper.h	/^	void	**mem;		\/* The list of vm regions *\/$/;"	m	struct:_vm_list_node_s
+mm_cont	mmsvr.c	/^int mm_cont = 1;$/;"	v
+mm_ctlmsg_s	memmgr.h	/^typedef struct mm_ctlmsg_s$/;"	s
+mm_ctlmsg_t	memmgr.h	/^} mm_ctlmsg_t;$/;"	t	typeref:struct:mm_ctlmsg_s
+mm_fini	mmsvr.c	/^void mm_fini()$/;"	f
+mm_free_pages_close	mmclient.c	/^void mm_free_pages_close(void)$/;"	f
+mm_free_pages_lock	mmclient.c	/^int mm_free_pages_lock(void)$/;"	f
+mm_free_pages_open	mmclient.c	/^int mm_free_pages_open(void)$/;"	f
+mm_free_pages_unlock	mmclient.c	/^int mm_free_pages_unlock(void)$/;"	f
+mm_go	mmsvr.c	/^void mm_go()$/;"	f
+mm_init	mmsvr.c	/^int mm_init()$/;"	f
+mm_page_block_free	mmsvr.c	/^void mm_page_block_free(mm_page_block_t *pb)$/;"	f
+mm_page_block_new	mmsvr.c	/^mm_page_block_t *mm_page_block_new()$/;"	f
+mm_page_block_s	mmsvr.h	/^typedef struct mm_page_block_s$/;"	s
+mm_page_block_t	mmsvr.h	/^} mm_page_block_t;$/;"	t	typeref:struct:mm_page_block_s
+mm_queues_fini	mmsvr.c	/^void mm_queues_fini()$/;"	f
+mm_queues_init	mmsvr.c	/^int mm_queues_init()$/;"	f
+mm_svcmsg_s	memmgr.h	/^typedef struct mm_svcmsg_s$/;"	s
+mm_svcmsg_t	memmgr.h	/^} mm_svcmsg_t;$/;"	t	typeref:struct:mm_svcmsg_s
+mmsvr_sigterm	memmgr.c	/^void mmsvr_sigterm(int signo)$/;"	f
+n_entries	registry.h	/^	int				n_entries;$/;"	m	struct:cc_registry_s
+nca	registry.h	/^	int						nca;		\/* Number of shared caches involved *\/$/;"	m	struct:cc_regent_s
+ndr	registry.h	/^	int						ndr;		\/* Number of data regions *\/$/;"	m	struct:cc_regent_s
+needed	remapper.h	/^	int		needed;		\/* Max number of pages needed in this color *\/$/;"	m	struct:_page_picker_s
+next	mmsvr.h	/^	struct mm_page_block_s *next;$/;"	m	struct:mm_page_block_s	typeref:struct:mm_page_block_s::mm_page_block_s
+next	registry.h	/^	struct cc_regent_s		*next, *prev;$/;"	m	struct:cc_regent_s	typeref:struct:cc_regent_s::cc_regent_s
+next	remapper.h	/^	struct _vm_list_node_s *next;$/;"	m	struct:_vm_list_node_s	typeref:struct:_vm_list_node_s::_vm_list_node_s
+next_pages_per_loop	mmclient.c	/^int next_pages_per_loop(const int color, const int pages)$/;"	f
+num_aligned_pages	allocator.c	/^int num_aligned_pages(const unsigned long *start, const unsigned long *end,$/;"	f
+owner	cache.h	/^	pid_t	owner[ULCC_NUM_CACHE_COLORS];	\/* Owner of each private color *\/$/;"	m	struct:cc_cache_status_s
+page_blocks_fini	mmsvr.c	/^void page_blocks_fini()$/;"	f
+page_blocks_head	mmsvr.c	/^static mm_page_block_t *page_blocks_head[ULCC_NUM_CACHE_COLORS] =$/;"	v	file:
+page_blocks_init	mmsvr.c	/^int page_blocks_init()$/;"	f
+page_blocks_tail	mmsvr.c	/^static mm_page_block_t *page_blocks_tail[ULCC_NUM_CACHE_COLORS] =$/;"	v	file:
+pages	remapper.h	/^	void	**pages;	\/* Container of picked pages *\/$/;"	m	struct:_page_picker_s
+parse_args	mmsvr.c	/^int parse_args(int argc, char *argv[])$/;"	f
+pb_pages	mmsvr.c	/^static unsigned long	pb_pages[ULCC_NUM_CACHE_COLORS] = {0,};$/;"	v	file:
+picked	remapper.h	/^	int		picked;		\/* Number of pages already picked *\/$/;"	m	struct:_page_picker_s
+prev	registry.h	/^	struct cc_regent_s		*next, *prev;$/;"	m	struct:cc_regent_s	typeref:struct:cc_regent_s::
+regn	registry.h	/^	cc_cacheregn_t			regn;		\/* Cache region covered *\/$/;"	m	struct:cc_regent_s
+s_size	ulcc.h	/^	int s_size;			\/* Size of cache space in bytes *\/$/;"	m	struct:cc_cacheslot_s
+s_type	ulcc.h	/^	int s_type;			\/* Type of cache space: CC_PRIVATE or CC_SHARED *\/$/;"	m	struct:cc_cacheslot_s
+sem_free_pages	mmsvr.c	/^sem_t *sem_free_pages = SEM_FAILED;$/;"	v
+sem_reg	registry.c	/^sem_t _ULCC_HIDDEN sem_reg;$/;"	v
+start	registry.h	/^	unsigned long			*start;		\/* Start addresses of data regions *\/$/;"	m	struct:cc_regent_s
+stop_service	mmsvr.c	/^int stop_service(void)$/;"	f
+svc_cmd	memmgr.h	/^	int				svc_cmd;		\/* Request: MM_REQ_PAGES or MM_REQ_NOTIFY? *\/$/;"	m	struct:mm_svcmsg_s
+svc_cmd	memmgr.h	/^	int		svc_cmd;$/;"	m	struct:mm_svcmsg_s
+svc_color	memmgr.h	/^	int				svc_color;$/;"	m	struct:mm_svcmsg_s
+svc_color	memmgr.h	/^	int		svc_color;$/;"	m	struct:mm_svcmsg_s
+svc_count	memmgr.h	/^	int				svc_count;$/;"	m	struct:mm_svcmsg_s
+svc_count	memmgr.h	/^	int		svc_count;$/;"	m	struct:mm_svcmsg_s
+svc_key	memmgr.h	/^	unsigned long	svc_key;		\/* Key held by the requester *\/$/;"	m	struct:mm_svcmsg_s
+svc_pipeid	memmgr.h	/^	unsigned long	svc_pipeid;		\/* Id of the pagepipe *\/$/;"	m	struct:mm_svcmsg_s
+svc_wake	memmgr.h	/^	char			svc_wake[MM_WAKE_LEN];$/;"	m	struct:mm_svcmsg_s
+svc_wake	memmgr.h	/^	char	svc_wake[MM_WAKE_LEN];$/;"	m	struct:mm_svcmsg_s
+svcque	mmsvr.c	/^mqd_t svcque = -1;$/;"	v
+t_count	ulcc.h	/^	int			t_count;	\/* Current number of tids in this thread group *\/$/;"	m	struct:cc_thrdset_s
+t_max	ulcc.h	/^	int			t_max;		\/* Maximum number of tids in the thread group *\/$/;"	m	struct:cc_thrdset_s
+t_threads	ulcc.h	/^	cc_tid_t	*t_threads;	\/* Thread id array *\/$/;"	m	struct:cc_thrdset_s
+thread_control	mmsvr.c	/^void *thread_control(void *param)$/;"	f
+tot_mem_pages	mmsvr.c	/^static long tot_mem_pages = 0;$/;"	v	file:
+total_mem_pages	mmsvr.c	/^long total_mem_pages(void)$/;"	f
+type	cache.h	/^	int		type[ULCC_NUM_CACHE_COLORS];	\/* Type of each color: CC_PRIVATE,$/;"	m	struct:cc_cache_status_s
+use_memmgr	mmclient.c	/^int use_memmgr(const int c_colors, const int c_pages_per_color)$/;"	f
